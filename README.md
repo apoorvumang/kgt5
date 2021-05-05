@@ -8,7 +8,7 @@ pip install transformers
 pip install accelerate
 ```
 
-There are lots of useless files in here, so please ignore them.
+There are lots of useless files in here, so please ignore them. Useful files are main_accelerate.py, eval_accelerate.py and dataset.py
 
 Dataset download: https://storage.googleapis.com/t5-kgc-colab/data/codex_training_data/codex-m/data.zip
 
