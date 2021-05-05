@@ -20,6 +20,9 @@ parser.add_argument('--checkpoint',type=int,
 
 parser.add_argument('--dataset',type=str, default='wikidata5m',
                     help='number')
+
+parser.add_argument('--batch_size',type=int, default=200,
+                    help='number')
                     
     
 args = parser.parse_args()
@@ -33,9 +36,9 @@ def removePadding(arr):
         return arr[:last_index]
     
 
-def eval(model, dataset, args=None):
+def eval(model, dataset, args):
     num_workers = 1
-    batch_size = 200
+    batch_size = args.batch_size
     model.cuda()
     model.eval()
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers,
@@ -75,5 +78,5 @@ model, _, _, _ = load_accelerator_model(checkpoint_location)
 
 
 
-accuracy = eval(model, valid_dataset)
+accuracy = eval(model, valid_dataset, args)
 print(accuracy)
