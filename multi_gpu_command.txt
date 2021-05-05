@@ -1,0 +1,28 @@
+CUDA_VISIBLE_DEVICES=1,2,3,4,5,7 python3 -m torch.distributed.launch --nproc_per_node 6 --use_env ./main_accelerate.py
+
+
+CUDA_VISIBLE_DEVICES=5,6 python3 -m torch.distributed.launch --nproc_per_node 2 --use_env ./main_accelerate.py \
+--save_prefix='wd5m_acc_2gpu' \
+--load_checkpoint='wikidata_15000.pt'
+
+
+CUDA_VISIBLE_DEVICES=1,2,3,4,5,7 python3 -m torch.distributed.launch --nproc_per_node 6 --use_env ./main_accelerate.py \
+--save_prefix='wd5m_acc_6gpu'
+
+
+
+
+CUDA_VISIBLE_DEVICES=2 python3 -m torch.distributed.launch --nproc_per_node 1 --use_env ./main_accelerate.py \
+--save_prefix='wd5m_test' \
+--load_checkpoint='wikidata_15000.pt'
+
+CUDA_VISIBLE_DEVICES=0 python3 main_accelerate.py \
+--save_prefix='test' \
+--save_steps 50
+
+
+CUDA_VISIBLE_DEVICES=1,2,3,4,5,7 python3 -m torch.distributed.launch --nproc_per_node 6 --use_env ./main_accelerate.py \
+--save_prefix codex-m_6gpu \
+--model_size base --dataset codex-m \
+--batch_size 16 --save_steps 2500 \
+--loss_steps 250
