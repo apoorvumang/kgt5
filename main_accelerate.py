@@ -100,7 +100,7 @@ def train(model, optimizer, dataset, args=None):
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers,
                             collate_fn=dataset._collate_fn)
     model, optimizer, data_loader = accelerator.prepare(model, optimizer, data_loader)
-    
+    # model, optimizer, _, _ = load_accelerator_model('models/codex-m_6gpu/17500.pt')
     model.to(device)
     model.train()
     
@@ -120,13 +120,13 @@ def train(model, optimizer, dataset, args=None):
             if num_steps % save_steps == 0:
                 accelerator.print('Saving at step %d' % num_steps)
                 save_accelerator_model(model, optimizer, num_steps, loss.item(), args)
-                
-
+            num_steps += 1
             if num_steps % loss_steps == 0:
-                accelerator.print('Loss: ', running_loss/loss_steps)
+                # accelerator.print('Loss: ', running_loss/loss_steps)
+                accelerator.print('Loss: ', loss.item()/len(input_ids)) # divide by batch size
                 running_loss = 0
             running_loss += loss.item()
-            num_steps += 1
+            
         accelerator.print('epoch loss ', running_loss)
 
 
@@ -135,6 +135,7 @@ train_dataset = T5_Dataset('train', dataset_name=args.dataset)
 args.start_steps = 0
 config = T5Config().from_pretrained('t5-{}'.format(args.model_size))
 model = T5ForConditionalGeneration(config)
+
 
 if args.optimizer == 'adafactor':
     optimizer = Adafactor(model.parameters(), lr=args.learning_rate, relative_step=True, warmup_init=True)
@@ -153,20 +154,9 @@ if args.resume != None:
         exit(0)
 elif args.load_checkpoint != None:
     accelerator.print('Loading from {}'.format(args.load_checkpoint))
-    model, optimizer, _, _ = load_accelerator_model(args.load_checkpoint, model, optimizer)
-    print('Loaded')
-    exit(0)
+    model, optimizer, _, _ = load_accelerator_model('models/{}'.format(args.load_checkpoint))
+    accelerator.print('Loaded')
 else:
     accelerator.print('Starting fresh')
     
-# model = T5ForConditionalGeneration.from_pretrained('t5-small')
-# checkpoint_iter = 35000
-# model = T5ForConditionalGeneration.from_pretrained('models/codex_m_{}.pt'.format(checkpoint_iter))
-
 train(model, optimizer, train_dataset, args)
-
-
-
-
-# accuracy = eval(model, dataset)
-# print(accuracy)

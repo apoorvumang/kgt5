@@ -14,8 +14,8 @@ def removeModuleFromKeys(state_dict):
     else:
         return state_dict
 
-def load_accelerator_model(checkpoint_location):
-    checkpoint = torch.load(checkpoint_location)
+def load_accelerator_model(checkpoint_location, only_model = False):
+    checkpoint = torch.load(checkpoint_location, map_location='cpu')
     args = checkpoint['args']
     config = T5Config().from_pretrained('t5-{}'.format(args.model_size))
     model = T5ForConditionalGeneration(config)
@@ -33,5 +33,8 @@ def load_accelerator_model(checkpoint_location):
     model_state_dict = removeModuleFromKeys(model_state_dict)
     model.load_state_dict(model_state_dict)
     optimizer.load_state_dict(optimizer_state_dict)
-    return model, optimizer, args, loss
+    if only_model:
+        return model
+    else:
+        return model, optimizer, args, loss
 
