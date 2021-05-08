@@ -12,6 +12,7 @@ from tqdm import tqdm
 import random
 from torch.utils.data import Dataset, DataLoader
 from transformers import T5TokenizerFast
+import os
 
 class T5_Dataset(Dataset):
     def __init__(self, 
@@ -23,6 +24,8 @@ class T5_Dataset(Dataset):
         )
         self.tokenizer = T5TokenizerFast.from_pretrained('t5-small')
         self.data = self.loadData(filename)
+        self.entity_strings = self.load_entity_strings(os.path.join("data", dataset_name, "entity_strings.txt"))
+        self.tokenized_entities = self.tokenizer(self.entity_strings, padding='max_length', truncation=True, max_length=32, return_tensors="pt")
 
     def numLines(self, fname):
         with open(fname) as f:
@@ -44,6 +47,12 @@ class T5_Dataset(Dataset):
             outputs.append(line[1])
         data = {'inputs': inputs, 'outputs': outputs}
         return data
+
+    @staticmethod
+    def load_entity_strings(filename):
+        f = open(filename)
+        return f.readlines()
+
 
     def __len__(self):
         return len(self.data['inputs'])
