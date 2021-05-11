@@ -16,6 +16,7 @@ Dataset download: https://storage.googleapis.com/t5-kgc-colab/data/codex_trainin
 
 ### Training
 
+#### Multi GPU
 Set the parameter `--nproc_per_node` same as the number of GPUs that you use
 
 ```
@@ -25,6 +26,16 @@ CUDA_VISIBLE_DEVICES=1,2,3,4,5,7 python3 -m torch.distributed.launch --nproc_per
 --batch_size 64 --save_steps 5000 \
 --loss_steps 500
 ```
+#### Single GPU
+
+```
+CUDA_VISIBLE_DEVICES=0 python3 main_accelerate.py \
+--save_prefix codex-m_1gpu \
+--model_size small --dataset codex-m \
+--batch_size 64 --save_steps 5000 \
+--loss_steps 500
+```
+
 
 ### Evaluation
 

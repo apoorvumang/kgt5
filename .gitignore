@@ -1,4 +1,5 @@
-data/
+data/*
+!data/get_unique_entities.py
 kgc_env/
 models/
 
