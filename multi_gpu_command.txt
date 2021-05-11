@@ -26,3 +26,42 @@ CUDA_VISIBLE_DEVICES=1,2,3,4,5,7 python3 -m torch.distributed.launch --nproc_per
 --model_size base --dataset codex-m \
 --batch_size 16 --save_steps 2500 \
 --loss_steps 250
+
+
+
+CUDA_VISIBLE_DEVICES=7 python3 main_accelerate.py \
+--save_prefix codex-m_small_1gpu \
+--model_size small --dataset codex-m \
+--batch_size 64 --save_steps 5000 \
+--loss_steps 500 --epochs 50
+
+
+CUDA_VISIBLE_DEVICES=2,3,4,5 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix codex-m_4gpu \
+--model_size small --dataset codex-m \
+--batch_size 80 --save_steps 2500 \
+--loss_steps 250 --learning_rate 0.0001
+
+
+
+CUDA_VISIBLE_DEVICES=0 python3 main_accelerate.py \
+--save_prefix codex-m_tiny_new \
+--model_size='patrickvonplaten/t5-tiny-random' --dataset codex-m \
+--batch_size 256 --save_steps 5000 \
+--loss_steps 500 --epochs 100
+
+
+ CUDA_VISIBLE_DEVICES=2,3,4,5 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix codex-m_4gpu \
+--model_size small --dataset codex-m \
+--batch_size 80 --save_steps 2500 \
+--loss_steps 250 --learning_rate 0.001 \
+--epochs 50 --load_checkpoint codex-m_4gpu/5000.pt
+
+
+ CUDA_VISIBLE_DEVICES=1,2,3,4,5,6 python3 -m torch.distributed.launch --nproc_per_node 6 --use_env ./main_accelerate.py \
+--save_prefix codex-m_6gpu_8may \
+--model_size small --dataset codex-m \
+--batch_size 80 --save_steps 2500 \
+--loss_steps 250 \
+--epochs 100

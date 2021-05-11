@@ -98,7 +98,7 @@ def train(model, optimizer, dataset, args=None):
     save_steps = args.save_steps
     num_steps = args.start_steps
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers,
-                            collate_fn=dataset._collate_fn)
+                            collate_fn=dataset._collate_fn_new)
     model, optimizer, data_loader = accelerator.prepare(model, optimizer, data_loader)
     # model, optimizer, _, _ = load_accelerator_model('models/codex-m_6gpu/17500.pt')
     model.to(device)
@@ -133,12 +133,19 @@ def train(model, optimizer, dataset, args=None):
 train_dataset = T5_Dataset('train', dataset_name=args.dataset)
 
 args.start_steps = 0
-config = T5Config().from_pretrained('t5-{}'.format(args.model_size))
+if 't5' not in args.model_size: # TODO: remove the need for this
+    args.model_size = 't5-{}'.format(args.model_size)
+config = T5Config().from_pretrained(args.model_size)
 model = T5ForConditionalGeneration(config)
 
 
 if args.optimizer == 'adafactor':
-    optimizer = Adafactor(model.parameters(), lr=args.learning_rate, relative_step=True, warmup_init=True)
+    if args.learning_rate == None:
+        # optimizer = Adafactor(model.parameters(), relative_step=True, warmup_init=True)
+        optimizer = Adafactor(model.parameters(), scale_parameter=True, relative_step=True, warmup_init=True, lr=None)
+    else:
+        # optimizer = Adafactor(model.parameters(), lr=args.learning_rate, relative_step=False, warmup_init=False)
+        optimizer = Adafactor(model.parameters(), scale_parameter=False, relative_step=False, warmup_init=False, lr=args.learning_rate)
 elif args.optimizer == 'adam':
     optimizer = transformers.AdamW(model.parameters(), lr=args.learning_rate)
 else:
