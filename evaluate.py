@@ -30,7 +30,7 @@ class Evaluator:
         ranks = list()
         for steps, batch in enumerate(loader):
             ranks_in_batch = list()
-            input_ids, attention_mask, label_strings, labels_tokenized_ids, labels_attention_mask = batch.values()
+            input_ids, attention_mask, label_strings = batch
             input_ids = input_ids.to(self.device)
             attention_mask = attention_mask.to(self.device)
             #labels = labels.to(self.device)

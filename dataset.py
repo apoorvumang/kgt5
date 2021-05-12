@@ -17,13 +17,14 @@ import os
 class T5_Dataset(Dataset):
     def __init__(self, 
                 split,
-                dataset_name = 'wikidata5m'):
+                dataset_name = 'wikidata5m',
+                max_points=-1):
         filename = 'data/{dataset_name}/{split}.txt'.format(
             dataset_name=dataset_name,
-            split=split
+            split=split,
         )
         self.tokenizer = T5TokenizerFast.from_pretrained('t5-small')
-        self.data = self.loadData(filename)
+        self.data = self.loadData(filename, max_points)
         self.entity_strings = self.load_entity_strings(os.path.join("data", dataset_name, "entity_strings.txt"))
         self.tokenized_entities = self.tokenizer(self.entity_strings, padding='max_length', truncation=True, max_length=32, return_tensors="pt")
         self.entity_string_to_id = dict(zip(self.entity_strings, torch.arange(len(self.entity_strings)).tolist()))
@@ -34,18 +35,21 @@ class T5_Dataset(Dataset):
                 pass
         return i + 1
     
-    def loadData(self, filename):
+    def loadData(self, filename, max_points):
         file_len = self.numLines(filename)
         f = open(filename, 'r')
         inputs = []
         outputs = []
-        for _ in tqdm(range(file_len)):
+        for i in tqdm(range(file_len)):
+            if i == max_points:
+                break
             line = f.readline()
             if line[-1] == '\n':
                 line = line[:-1]
             line = line.split('\t')
             inputs.append(line[0])
             outputs.append(line[1])
+            
         data = {'inputs': inputs, 'outputs': outputs}
         return data
 
@@ -77,25 +81,30 @@ class T5_Dataset(Dataset):
         # labels = -100 * torch.ones(labels.shape, dtype=torch.long)
         return input_ids, attention_mask, labels, labels_attention_mask
 
-    def _collate_without_padding(self, items):
+    def _collate_fn_new(self, items):
         inputs = [item[0] for item in items]
         outputs = [item[1] for item in items]
-        inputs_tokenized = self.tokenizer(inputs, padding='max_length', truncation=True, max_length=128, return_tensors="pt")
-        outputs_tokenized = self.tokenizer(outputs, padding='max_length', truncation=True, max_length=32, return_tensors="pt")
+        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, max_length=128, return_tensors="pt")
+        outputs_tokenized = self.tokenizer(outputs, padding=True, truncation=True, max_length=32, return_tensors="pt")
         input_ids, attention_mask = inputs_tokenized.input_ids, inputs_tokenized.attention_mask
         labels, labels_attention_mask = outputs_tokenized.input_ids, outputs_tokenized.attention_mask
+        # for labels, set -100 for padding
+        labels[labels==0] = -100
+        # labels = -100 * torch.ones(labels.shape, dtype=torch.long)
         return input_ids, attention_mask, labels, labels_attention_mask
 
-    def _collate_eval(self, items):
-        input_ids, attention_mask, labels, labels_attention_mask = self._collate_without_padding(items)
-        return {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "label_strings": [item[1] for item in items],
-            "labels_tokenized": labels,
-            "labels_attention_mask": labels_attention_mask,
-        }
 
+    def _collate_eval(self, items):
+        inputs = [item[0] for item in items]
+        target_text = [item[1] for item in items]
+        # inputs_tokenized = self.tokenizer(inputs, return_tensors="pt")
+        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt")
+        # inputs_tokenized = self.tokenizer(inputs, padding='max_length', truncation=True, max_length=128, return_tensors="pt")
+        # print(inputs_tokenized.input_ids)
+        # print(inputs_tokenized.attention_mask)
+        
+        # print(inputs_tokenized.attention_mask)
+        return inputs_tokenized.input_ids, inputs_tokenized.attention_mask, target_text
 
     def tokenizedToText(self, arr):
         return ''.join(self.tokenizer.convert_ids_to_tokens(arr))
