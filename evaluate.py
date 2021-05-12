@@ -4,6 +4,7 @@ from tqdm import tqdm
 from dataset import T5_Dataset
 from torch.utils.data import DataLoader
 from utils_accelerate import *
+import numpy as np
 
 
 class Evaluator:
@@ -19,17 +20,20 @@ class Evaluator:
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=dataset._collate_without_padding,
+            collate_fn=dataset._collate_eval,
         )
 
+    @torch.no_grad()
     def eval(self):
         self.model.eval()
         loader = tqdm(self.data_loader, total=len(self.data_loader), unit="batch")
+        ranks = list()
         for steps, batch in enumerate(loader):
-            input_ids, attention_mask, labels, labels_attention_mask = batch
+            ranks_in_batch = list()
+            input_ids, attention_mask, label_strings, labels_tokenized_ids, labels_attention_mask = batch.values()
             input_ids = input_ids.to(self.device)
             attention_mask = attention_mask.to(self.device)
-            labels = labels.to(self.device)
+            #labels = labels.to(self.device)
             input_ids_repeated = torch.repeat_interleave(
                 input_ids, len(self.dataset.entity_strings), dim=0
             )
@@ -39,7 +43,9 @@ class Evaluator:
             tokenized_entities = self.dataset.tokenized_entities.input_ids.to(
                 self.device
             )
+            # todo: for filtering we need to use only the filtered entities per triple here
             all_entities_repeated = tokenized_entities.repeat([self.batch_size, 1])
+            summed_logit_chunks = []
             # process chunk by chunk
             for chunk_number in range(
                 math.ceil(len(input_ids_repeated) / self.chunk_size)
@@ -54,6 +60,26 @@ class Evaluator:
                     labels=all_entities_repeated[chunk_start:chunk_end],
                 )
                 logits_chunk = outputs_chunk.logits
+                # todo: check if this is correct with paddings and so on
+                needed_logits_chunk = torch.gather(
+                    logits_chunk,
+                    2,
+                    all_entities_repeated[chunk_start:chunk_end].view(self.chunk_size, 1, -1)
+                ).view(self.chunk_size, -1)
+                summed_logits = torch.sum(needed_logits_chunk, dim=1)
+                summed_logit_chunks.append(summed_logits)
+            summed_logits = torch.cat(summed_logit_chunks)
+            for summed_logits_per_triple, label in zip(summed_logits.split(len(self.dataset.entity_strings)), label_strings):
+                arg_sorted = torch.argsort(summed_logits_per_triple, descending=True)
+                rank = (arg_sorted == self.dataset.entity_string_to_id[label]).nonzero(as_tuple=True)[0].item()
+                print(rank)
+                ranks_in_batch.append(rank)
+            ranks.extend(ranks_in_batch)
+        ranks = np.array(ranks)
+        print("MR", ranks.mean())
+        print("MRR", np.power(ranks, -1).mean())
+        # todo: calculate hits and so on
+
 
 
 def main():

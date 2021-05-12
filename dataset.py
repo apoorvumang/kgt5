@@ -26,6 +26,7 @@ class T5_Dataset(Dataset):
         self.data = self.loadData(filename)
         self.entity_strings = self.load_entity_strings(os.path.join("data", dataset_name, "entity_strings.txt"))
         self.tokenized_entities = self.tokenizer(self.entity_strings, padding='max_length', truncation=True, max_length=32, return_tensors="pt")
+        self.entity_string_to_id = dict(zip(self.entity_strings, torch.arange(len(self.entity_strings)).tolist()))
 
     def numLines(self, fname):
         with open(fname) as f:
@@ -50,8 +51,9 @@ class T5_Dataset(Dataset):
 
     @staticmethod
     def load_entity_strings(filename):
-        f = open(filename)
-        return f.readlines()
+        with open(filename) as f:
+            lines = f.read().splitlines()
+        return lines
 
 
     def __len__(self):
@@ -83,6 +85,17 @@ class T5_Dataset(Dataset):
         input_ids, attention_mask = inputs_tokenized.input_ids, inputs_tokenized.attention_mask
         labels, labels_attention_mask = outputs_tokenized.input_ids, outputs_tokenized.attention_mask
         return input_ids, attention_mask, labels, labels_attention_mask
+
+    def _collate_eval(self, items):
+        input_ids, attention_mask, labels, labels_attention_mask = self._collate_without_padding(items)
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "label_strings": [item[1] for item in items],
+            "labels_tokenized": labels,
+            "labels_attention_mask": labels_attention_mask,
+        }
+
 
     def tokenizedToText(self, arr):
         return ''.join(self.tokenizer.convert_ids_to_tokens(arr))
