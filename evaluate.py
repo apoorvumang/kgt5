@@ -20,7 +20,7 @@ class Evaluator:
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=dataset._collate_eval,
+            collate_fn=dataset._collate_eval_2,
         )
 
     @torch.no_grad()
@@ -30,10 +30,10 @@ class Evaluator:
         ranks = list()
         for steps, batch in enumerate(loader):
             ranks_in_batch = list()
-            input_ids, attention_mask, label_strings = batch
+            input_ids, attention_mask, label_strings, input_strings = batch
             input_ids = input_ids.to(self.device)
             attention_mask = attention_mask.to(self.device)
-            #labels = labels.to(self.device)
+            # labels = labels.to(self.device)
             input_ids_repeated = torch.repeat_interleave(
                 input_ids, len(self.dataset.entity_strings), dim=0
             )
@@ -54,32 +54,60 @@ class Evaluator:
                 chunk_end = min(
                     self.chunk_size * (chunk_number + 1), len(input_ids_repeated)
                 )
+                current_chunk_size = chunk_end - chunk_start
                 outputs_chunk = self.model(
                     input_ids=input_ids_repeated[chunk_start:chunk_end],
                     attention_mask=attention_mask_repeated[chunk_start:chunk_end],
                     labels=all_entities_repeated[chunk_start:chunk_end],
                 )
                 logits_chunk = outputs_chunk.logits
-                # todo: check if this is correct with paddings and so on
+                # add pad at beginning
+                coordinates = torch.cat(
+                    (
+                        torch.zeros(
+                            [current_chunk_size, 1],
+                            dtype=torch.long,
+                            device=self.device,
+                        ),
+                        all_entities_repeated[chunk_start:chunk_end],
+                    ),
+                    dim=1,
+                )[:, : all_entities_repeated.shape[1]].view(current_chunk_size, -1, 1)
+                # set padded logits to zero
+                padded_mask = (coordinates == 0).squeeze()
+                # don't set pad at beginning to zero
+                padded_mask[:, 0] = False
+                logits_chunk[padded_mask] = 0
                 needed_logits_chunk = torch.gather(
                     logits_chunk,
                     2,
-                    all_entities_repeated[chunk_start:chunk_end].view(self.chunk_size, 1, -1)
-                ).view(self.chunk_size, -1)
+                    coordinates
+                    # all_entities_repeated[chunk_start:chunk_end].view(current_chunk_size, -1, 1)
+                ).view(current_chunk_size, -1)
+
                 summed_logits = torch.sum(needed_logits_chunk, dim=1)
                 summed_logit_chunks.append(summed_logits)
             summed_logits = torch.cat(summed_logit_chunks)
-            for summed_logits_per_triple, label in zip(summed_logits.split(len(self.dataset.entity_strings)), label_strings):
+            for summed_logits_per_triple, label in zip(
+                summed_logits.split(len(self.dataset.entity_strings)), label_strings
+            ):
                 arg_sorted = torch.argsort(summed_logits_per_triple, descending=True)
-                rank = (arg_sorted == self.dataset.entity_string_to_id[label]).nonzero(as_tuple=True)[0].item()
+                rank = (
+                    (arg_sorted == self.dataset.entity_string_to_id[label])
+                    .nonzero(as_tuple=True)[0]
+                    .item()
+                )
                 print(rank)
                 ranks_in_batch.append(rank)
             ranks.extend(ranks_in_batch)
-        ranks = np.array(ranks)
+        ranks = np.array(ranks, dtype=np.float32)
+        # add 1 to have best rank 1 not 0
+        ranks += 1
         print("MR", ranks.mean())
         print("MRR", np.power(ranks, -1).mean())
+        print("Hits@1", (ranks == 1).sum() / len(self.dataset))
+        print("Hits@10", (ranks <= 10).sum() / len(self.dataset))
         # todo: calculate hits and so on
-
 
 
 def main():
@@ -94,9 +122,10 @@ def main():
     parser.add_argument("--length_penalty", type=float, default=0.6)
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument("--split", type=str, default="test")
 
     args = parser.parse_args()
-    valid_dataset = T5_Dataset("test", dataset_name=args.dataset)
+    valid_dataset = T5_Dataset(args.split, dataset_name=args.dataset)
     checkpoint_location = "models/{}/{}.pt".format(args.prefix, args.checkpoint)
     print("Using %s" % checkpoint_location)
 

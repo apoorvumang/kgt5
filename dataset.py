@@ -106,6 +106,18 @@ class T5_Dataset(Dataset):
         # print(inputs_tokenized.attention_mask)
         return inputs_tokenized.input_ids, inputs_tokenized.attention_mask, target_text
 
+    def _collate_eval_2(self, items):
+        inputs = [item[0] for item in items]
+        target_text = [item[1] for item in items]
+        # inputs_tokenized = self.tokenizer(inputs, return_tensors="pt")
+        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt")
+        # inputs_tokenized = self.tokenizer(inputs, padding='max_length', truncation=True, max_length=128, return_tensors="pt")
+        # print(inputs_tokenized.input_ids)
+        # print(inputs_tokenized.attention_mask)
+
+        # print(inputs_tokenized.attention_mask)
+        return inputs_tokenized.input_ids, inputs_tokenized.attention_mask, target_text, inputs
+
     def tokenizedToText(self, arr):
         return ''.join(self.tokenizer.convert_ids_to_tokens(arr))
 
