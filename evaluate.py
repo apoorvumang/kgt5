@@ -61,31 +61,18 @@ class Evaluator:
                     labels=all_entities_repeated[chunk_start:chunk_end],
                 )
                 logits_chunk = outputs_chunk.logits
-                # add pad at beginning
-                coordinates = torch.cat(
-                    (
-                        torch.zeros(
-                            [current_chunk_size, 1],
-                            dtype=torch.long,
-                            device=self.device,
-                        ),
-                        all_entities_repeated[chunk_start:chunk_end],
-                    ),
-                    dim=1,
-                )[:, : all_entities_repeated.shape[1]].view(current_chunk_size, -1, 1)
+                soft_logits_chunk = torch.log_softmax(logits_chunk, dim=2)
+                coordinates = all_entities_repeated[chunk_start:chunk_end].view(current_chunk_size, -1, 1)
                 # set padded logits to zero
                 padded_mask = (coordinates == 0).squeeze()
-                # don't set pad at beginning to zero
-                padded_mask[:, 0] = False
-                logits_chunk[padded_mask] = 0
-                needed_logits_chunk = torch.gather(
-                    logits_chunk,
+                soft_logits_chunk[padded_mask] = 0
+                needed_soft_logits_chunk = torch.gather(
+                    soft_logits_chunk,
                     2,
                     coordinates
-                    # all_entities_repeated[chunk_start:chunk_end].view(current_chunk_size, -1, 1)
                 ).view(current_chunk_size, -1)
 
-                summed_logits = torch.sum(needed_logits_chunk, dim=1)
+                summed_logits = torch.sum(needed_soft_logits_chunk, dim=1)
                 summed_logit_chunks.append(summed_logits)
             summed_logits = torch.cat(summed_logit_chunks)
             for summed_logits_per_triple, label in zip(
