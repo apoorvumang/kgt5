@@ -100,8 +100,9 @@ class Evaluator:
                 # todo: currently we are calculating best rank on equality
                 #  change to mean
                 arg_sorted = torch.argsort(summed_logits_per_triple, descending=True)
+                entity_id = self.dataset.entity_string_to_id[label]
                 rank = (
-                    (arg_sorted == self.dataset.entity_string_to_id[label])
+                    (arg_sorted == entity_id)
                     .nonzero(as_tuple=True)[0]
                     .item()
                 )
@@ -109,11 +110,13 @@ class Evaluator:
                 ranks_in_batch["unfiltered"].append(rank)
 
                 # now filter
+                true_score = summed_logits_per_triple[entity_id].clone()
                 for filter_dict in self.filter_dicts.values():
-                    summed_logits_per_triple[filter_dict[input_string]] = float("inf")
+                    summed_logits_per_triple[filter_dict[input_string]] = -float("inf")
+                summed_logits_per_triple[entity_id] = true_score
                 arg_sorted = torch.argsort(summed_logits_per_triple, descending=True)
                 rank = (
-                    (arg_sorted == self.dataset.entity_string_to_id[label])
+                    (arg_sorted == entity_id)
                         .nonzero(as_tuple=True)[0]
                         .item()
                 )
