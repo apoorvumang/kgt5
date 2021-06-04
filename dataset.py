@@ -13,6 +13,7 @@ import random
 from torch.utils.data import Dataset, DataLoader
 from transformers import T5TokenizerFast
 import os
+from typing import Dict, List
 
 class T5_Dataset(Dataset):
     def __init__(self, 
@@ -25,9 +26,16 @@ class T5_Dataset(Dataset):
         )
         self.tokenizer = T5TokenizerFast.from_pretrained('t5-small')
         self.data = self.loadData(filename, max_points)
+        self.splits = dict()
+        self.splits["train"] = self.loadData(f"data/{dataset_name}/train.txt", max_points)
+        self.splits["valid"] = self.loadData(f"data/{dataset_name}/valid.txt", max_points)
+        self.splits["test"] = self.loadData(f"data/{dataset_name}/test.txt", max_points)
         self.entity_strings = self.load_entity_strings(os.path.join("data", dataset_name, "entity_strings.txt"))
         self.tokenized_entities = self.tokenizer(self.entity_strings, padding='max_length', truncation=True, max_length=32, return_tensors="pt")
         self.entity_string_to_id = dict(zip(self.entity_strings, torch.arange(len(self.entity_strings)).tolist()))
+
+    def split(self, split: str) -> Dict[List[str], List[str]]:
+        return self.splits[split]
 
     def numLines(self, fname):
         with open(fname) as f:

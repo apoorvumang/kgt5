@@ -5,6 +5,8 @@ from dataset import T5_Dataset
 from torch.utils.data import DataLoader
 from utils_accelerate import *
 import numpy as np
+from typing import Dict
+from collections import defaultdict
 
 
 class Evaluator:
@@ -22,14 +24,32 @@ class Evaluator:
             num_workers=self.num_workers,
             collate_fn=dataset._collate_eval_2,
         )
+        self.filter_dicts = dict()
+        self.filter_dicts["train"] = self.create_filter_dict("train")
+        self.filter_dicts["valid"] = self.create_filter_dict("valid")
+        self.filter_dicts["test"] = self.create_filter_dict("test")
+
+
+    def create_filter_dict(self, split: str) -> Dict[str, str]:
+        data = self.dataset.split(split)
+        filter_dict = defaultdict(list)
+        for input, output in zip(data["inputs"], data["outputs"]):
+            filter_dict[input].append(self.dataset.entity_string_to_id[output])
+        return filter_dict
 
     @torch.no_grad()
     def eval(self):
         self.model.eval()
         loader = tqdm(self.data_loader, total=len(self.data_loader), unit="batch")
-        ranks = list()
+        ranks = {
+            "unfiltered": list(),
+            "filtered": list(),
+        }
         for steps, batch in enumerate(loader):
-            ranks_in_batch = list()
+            ranks_in_batch = {
+                "unfiltered": list(),
+                "filtered": list()
+            }
             input_ids, attention_mask, label_strings, input_strings = batch
             input_ids = input_ids.to(self.device)
             attention_mask = attention_mask.to(self.device)
@@ -75,9 +95,11 @@ class Evaluator:
                 summed_logits = torch.sum(needed_soft_logits_chunk, dim=1)
                 summed_logit_chunks.append(summed_logits)
             summed_logits = torch.cat(summed_logit_chunks)
-            for summed_logits_per_triple, label in zip(
-                summed_logits.split(len(self.dataset.entity_strings)), label_strings
+            for summed_logits_per_triple, input_string, label in zip(
+                summed_logits.split(len(self.dataset.entity_strings)), input_strings, label_strings
             ):
+                # todo: currently we are calculating best rank on equality
+                #  change to mean
                 arg_sorted = torch.argsort(summed_logits_per_triple, descending=True)
                 rank = (
                     (arg_sorted == self.dataset.entity_string_to_id[label])
@@ -85,17 +107,34 @@ class Evaluator:
                     .item()
                 )
                 print(rank)
-                ranks_in_batch.append(rank)
-            ranks.extend(ranks_in_batch)
-        ranks = np.array(ranks, dtype=np.float32)
-        # add 1 to have best rank 1 not 0
-        ranks += 1
-        print("MR", ranks.mean())
-        print("MRR", np.power(ranks, -1).mean())
-        print("Hits@1", (ranks == 1).sum() / len(self.dataset))
-        print("Hits@10", (ranks <= 10).sum() / len(self.dataset))
-        # todo: calculate hits and so on
+                ranks_in_batch["unfiltered"].append(rank)
 
+                # now filter
+                for filter_dict in self.filter_dicts.values():
+                    summed_logits_per_triple[filter_dict[input_string]] = float("inf")
+                arg_sorted = torch.argsort(summed_logits_per_triple, descending=True)
+                rank = (
+                    (arg_sorted == self.dataset.entity_string_to_id[label])
+                        .nonzero(as_tuple=True)[0]
+                        .item()
+                )
+                print(rank)
+                ranks_in_batch["filtered"].append(rank)
+            ranks["filtered"].extend(ranks_in_batch["filtered"])
+            ranks["unfiltered"].extend(ranks_in_batch["unfiltered"])
+        for setting, list_of_ranks in ranks.items():
+            ranks[setting] = np.array(list_of_ranks, dtype=np.float32) + 1
+        # ranks = np.array(ranks, dtype=np.float32)
+        # # add 1 to have best rank 1 not 0
+        # ranks += 1
+        print("MR", ranks["unfiltered"].mean())
+        print("MR-filtered", ranks["filtered"].mean())
+        print("MRR", np.power(ranks["unfiltered"], -1).mean())
+        print("MRR-filtered", np.power(ranks["filtered"], -1).mean())
+        print("Hits@1", (ranks["unfiltered"] == 1).sum() / len(self.dataset))
+        print("Hits@1-filtered", (ranks["filtered"] == 1).sum() / len(self.dataset))
+        print("Hits@10", (ranks["unfiltered"] <= 10).sum() / len(self.dataset))
+        print("Hits@10-filtered", (ranks["filtered"] <= 10).sum() / len(self.dataset))
 
 def main():
     parser = argparse.ArgumentParser()
