@@ -29,8 +29,7 @@ class Evaluator:
         self.filter_dicts["valid"] = self.create_filter_dict("valid")
         self.filter_dicts["test"] = self.create_filter_dict("test")
 
-
-    def create_filter_dict(self, split: str) -> Dict[str, str]:
+    def create_filter_dict(self, split: str) -> Dict[str, int]:
         data = self.dataset.split(split)
         filter_dict = defaultdict(list)
         for input, output in zip(data["inputs"], data["outputs"]):
