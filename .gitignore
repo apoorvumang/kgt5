@@ -2,6 +2,9 @@ data/*
 !data/get_unique_entities.py
 kgc_env/
 models/
+scores/*
+*.pkl
+*.pickle
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

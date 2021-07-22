@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from dataset import T5_Dataset
+from dataset_qa import T5_DatasetQA
 from transformers import T5Tokenizer, T5Config, T5ForConditionalGeneration
 from noam_lr_scheduler import NoamLR
 import torch
@@ -8,6 +9,7 @@ from tqdm import tqdm
 from transformers import Adafactor
 import transformers
 from accelerate import Accelerator
+from evaluate import Evaluator
 import argparse
 import os
 from utils_accelerate import *
@@ -65,6 +67,15 @@ parser.add_argument('--save_steps',type=int,
 parser.add_argument('--loss_steps',type=int,
                     default=500,
                     help='num batches before printing loss')
+
+parser.add_argument('--tokenizer',type=str,
+                    default='t5')
+
+parser.add_argument('--relation_prediction',type=int,
+                    default=0)
+
+parser.add_argument('--task', type=str, default='kgc')
+parser.add_argument('--hops', type=int, default=1)
 
 args = parser.parse_args()
 
@@ -130,12 +141,20 @@ def train(model, optimizer, dataset, args=None):
         accelerator.print('epoch loss ', running_loss)
 
 
-train_dataset = T5_Dataset('train', dataset_name=args.dataset)
+if args.task == 'kgc':
+    train_dataset = T5_Dataset('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
+                            relation_prediction = args.relation_prediction)
+elif args.task == 'qa':
+    train_dataset = T5_DatasetQA('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
+                            relation_prediction = False, hops=args.hops)
+else:
+    raise NotImplementedError('{} task not implemented'.format(args.task))
 
 args.start_steps = 0
 if 't5' not in args.model_size: # TODO: remove the need for this
     args.model_size = 't5-{}'.format(args.model_size)
-config = T5Config().from_pretrained(args.model_size)
+kwargs = {'vocab_size': train_dataset.vocab_size}
+config = T5Config().from_pretrained(args.model_size, **kwargs)
 model = T5ForConditionalGeneration(config)
 
 
@@ -165,5 +184,6 @@ elif args.load_checkpoint != None:
     accelerator.print('Loaded')
 else:
     accelerator.print('Starting fresh')
+    accelerator.print(config)
     
 train(model, optimizer, train_dataset, args)

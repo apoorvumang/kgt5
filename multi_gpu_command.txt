@@ -65,3 +65,64 @@ CUDA_VISIBLE_DEVICES=0 python3 main_accelerate.py \
 --batch_size 80 --save_steps 2500 \
 --loss_steps 250 \
 --epochs 100
+
+
+
+CUDA_VISIBLE_DEVICES=1 python3 main_accelerate.py \
+--save_prefix codex-m-14jun \
+--model_size small --dataset codex-m \
+--batch_size 80 --save_steps 2500 \
+--loss_steps 250 \
+--epochs 30
+
+
+
+
+CUDA_VISIBLE_DEVICES=0,1 python3 -m torch.distributed.launch --nproc_per_node 2 --use_env ./main_accelerate.py \
+--save_prefix codex-m_4gpu_bpe \
+--model_size small --dataset codex-m \
+--tokenizer bpe \
+--batch_size 80 --save_steps 2500 \
+--loss_steps 250 \
+--epochs 100
+
+
+CUDA_VISIBLE_DEVICES=1,2,3,4,5,6 python3 -m torch.distributed.launch --nproc_per_node 6 --use_env ./main_accelerate.py \
+--save_prefix wd5m-sentencepiece-rp \
+--model_size small --dataset wikidata5m \
+--tokenizer sentencepiece \
+--batch_size 128 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 15 \
+--relation_prediction 1
+
+
+CUDA_VISIBLE_DEVICES=1,2 python3 main_accelerate.py \--save_prefix yago-sentencepiece-small \
+--model_size small --dataset yago3-10 \
+--tokenizer sentencepiece-yago \
+--batch_size 100 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 200 \
+
+
+CUDA_VISIBLE_DEVICES=1,2 python3 -m torch.distributed.launch --nproc_per_node 2 --use_env ./main_accelerate.py \
+--save_prefix yago3-10 \
+--model_size small --dataset yago3-10 \
+--tokenizer sentencepiece-yago \
+--batch_size 100 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 15 \
+--relation_prediction 0
+
+
+CUDA_VISIBLE_DEVICES=3 python3 eval_accelerate.py --prefix yago3-10 \
+--dataset yago3-10 --batch_size 4 --beam_size 1 \
+--num_predictions 100 --length_penalty 1.0 --max_points 500 \
+--checkpoint 10000 --eval_split valid --tokenizer sentencepiece-yago \
+--save_file scores_500_yago
+
+
+CUDA_VISIBLE_DEVICES=1 python3 eval_accelerate.py --prefix wd5m-sentencepiece-base \
+--dataset wikidata5m --batch_size 2 --beam_size 1 --num_predictions 100 \
+--length_penalty 1.0 --max_points 500 --checkpoint 140000 --eval_split test \
+--tokenizer sentencepiece --save_file scores_500_base

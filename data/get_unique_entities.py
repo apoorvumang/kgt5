@@ -3,11 +3,31 @@ import os
 import tqdm
 
 
+def from_aliases_file(fname):
+    f = open(fname)
+    unique_entities = set()
+    for line in f:
+        if line[-1] == '\n':
+            line = line[:-1]
+        entity = line.split('\t')[1]
+        unique_entities.add(entity)
+    f.close()
+    return unique_entities
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="codex-m")
     args = parser.parse_args()
     dataset_name = args.dataset
+
+    if dataset_name == 'wikidata5m':
+        print('Making from alias file')
+        unique_entities = from_aliases_file(os.path.join(dataset_name, "aliases.txt"))
+        output_file = os.path.join(dataset_name, "entity_strings.txt")
+        with open(output_file, "w") as out_file:
+            for entity in unique_entities:
+                out_file.write(entity + "\n")
+        exit(0)
 
     train_file = open(os.path.join(dataset_name, "train.txt"))
     valid_file = open(os.path.join(dataset_name, "valid.txt"))

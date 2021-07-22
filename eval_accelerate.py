@@ -1,4 +1,5 @@
 from dataset import T5_Dataset
+from dataset_qa import T5_DatasetQA
 from transformers import T5Tokenizer, T5Config, T5ForConditionalGeneration
 from noam_lr_scheduler import NoamLR
 import torch
@@ -14,7 +15,16 @@ from transformers import (
     LogitsProcessorList,
     MinLengthLogitsProcessor,
     BeamSearchScorer,
+    TemperatureLogitsWarper,
 )
+import pickle
+from trie import Trie
+
+# with open("wd5m_entities_trie.pkl", "rb") as f:
+#     entities_trie = Trie.load_from_dict(pickle.load(f))
+entities_trie = None
+# with open("yago2_entities_trie.pkl", "rb") as f:
+#     entities_trie = Trie.load_from_dict(pickle.load(f))
 
 
 def removePadding(arr):
@@ -25,6 +35,49 @@ def removePadding(arr):
         last_index = first_pad[0]
         return arr[:last_index]
     
+def prefixFn(batch_id, seq):
+    global entities_trie
+    # first token is 0 so ignoring that
+    out = entities_trie.get(seq[1:].tolist())
+    # if no token possible, end token
+    # TODO: should be eos_token_id instead of hardcoding 2
+    if out == []:
+        return [2]
+    else:
+        return out
+
+def grouper(arr, n):
+    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    total = len(arr)
+    if total % n != 0:
+        raise ValueError('Cannot divide %d by %d' % (total, n))
+    out = []
+    for i in range(int(total/n)):
+        start_id = i * n
+        out.append(arr[start_id:start_id+n])
+    return out
+
+def getScores(ids, scores, pad_token_id):
+    # ids is list of tokenized strings
+    # scores is a list of tensors. each tensor contains score of each token in vocab
+    # conditioned on ids till that point
+    # stack scores
+    scores = torch.stack(scores, dim=1)
+    
+    # after stacking, shape is (batch_size*num_return_sequences, num tokens in sequence, vocab size)
+    # get probs
+    log_probs = torch.log_softmax(scores, dim=2)
+    # remove start token
+    ids = ids[:,1:]
+    # gather needed probs
+    x = ids.unsqueeze(-1).expand(log_probs.shape)
+    needed_logits = torch.gather(log_probs, 2, x)
+    final_logits = needed_logits[:, :, 0]
+    padded_mask = (ids == pad_token_id)
+    final_logits[padded_mask] = 0
+    final_scores = final_logits.sum(dim=-1)
+
+    return final_scores.cpu().detach().numpy()
 
 def eval(model, dataset, args):
     num_workers = 1
@@ -34,138 +87,93 @@ def eval(model, dataset, args):
     model.eval()
     print('Doing greedy decoding')
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers,
-                            collate_fn=dataset._collate_eval)
+                            collate_fn=dataset._collate_eval_with_input_strings)
     loader = tqdm(data_loader, total=len(data_loader), unit="batches")
     i = 0
     targets = []
     predictions = []
+    prediction_scores = []
+    model_inputs = []
+    # all_entities = set(dataset.entity_strings)
     for steps, batch in enumerate(loader):
-        input_ids, attention_mask, target_text = batch
-        outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda())
+        input_ids, attention_mask, target_text, input_text = batch
+        if args.task == 'kgc':
+            outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
+                                    temperature=1.0,
+                                    do_sample=True,
+                                    num_return_sequences = args.num_predictions,
+                                    num_beams = args.beam_size,
+                                    eos_token_id = dataset.tokenizer.eos_token_id,
+                                    pad_token_id = dataset.tokenizer.pad_token_id,
+                                    output_scores = True,
+                                    return_dict_in_generate=True,
+                                    #  prefix_allowed_tokens_fn=prefixFn,
+                                    )
+        elif args.task == 'qa':
+            # qa only 1 output, greedy decode
+            outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
+                                    do_sample=False,
+                                    eos_token_id = dataset.tokenizer.eos_token_id,
+                                    pad_token_id = dataset.tokenizer.pad_token_id,
+                                    output_scores = True,
+                                    return_dict_in_generate=True,
+                                    #  prefix_allowed_tokens_fn=prefixFn,
+                                    )
         # predicted_batch = outputs[:, 1:]
-        predicted_text = dataset.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        # print(outputs.keys())
+        # print(outputs['sequences'].shape)
+        # print(outputs['sequences_scores'].shape)
+        # exit(0)
+        sequences = outputs.sequences
+        
+        if args.beam_size > 1:
+            final_scores = outputs.sequences_scores
+        else:
+            scores = outputs.scores
+            final_scores = getScores(sequences, scores, dataset.tokenizer.pad_token_id)
+
+        predicted_text = dataset.tokenizer.batch_decode(sequences, skip_special_tokens=True)
+        # predicted_text = zip(*[iter(predicted_text)]*args.num_predictions)
+        if args.task == 'kgc':
+            predicted_text = grouper(predicted_text, args.num_predictions) # grouping only needed if multiple predictions
+            final_scores = grouper(final_scores, args.num_predictions)
+        elif args.task == 'qa':
+            final_scores = final_scores.tolist()
+        # for j in range(len(predicted_text)):
+        #     for i in range(len(predicted_text[j])):
+        #         print(predicted_text[j][i], final_scores[j][i].item())
+        #     print()
+        # exit(0)
+        # print(len(predicted_text[0]))
         targets.extend(target_text)
+        model_inputs.extend(input_text)
         predictions.extend(predicted_text)
+        prediction_scores.extend(final_scores)
             
     correct = 0
+    num_not_in_entities = 0
     for p, t in zip(predictions, targets):
-        if p == t:
-            correct += 1
+        if args.task == 'kgc':
+            if t in p:
+                correct += 1
+        elif args.task == 'qa':
+            if p in t:
+                correct += 1
+        # if p not in all_entities:
+        #     num_not_in_entities += 1
+    # print(num_not_in_entities/len(predictions), 'predictions were not entities')
+    data_to_save = {'prediction_strings': predictions, 
+                    'scores': prediction_scores,
+                    'target_strings': targets,
+                    'input_strings': model_inputs}
+    fname = 'scores/' + args.save_file + '.pickle'
+    pickle.dump(data_to_save, open(fname, 'wb'))
     accuracy = correct/len(targets)
     return accuracy    
 
-def getGreedyOutput(model, tokenizer, encoder_input_str):
-    encoder_input_str = [encoder_input_str]
-    encoder_input_ids = tokenizer(encoder_input_str, return_tensors="pt").input_ids
-    outputs = model.generate(encoder_input_ids)
-    return tokenizer.batch_decode(outputs, skip_special_tokens=True)
-
-def getBeamOutput(model, tokenizer, encoder_input_str, num_beams=10, 
-                  num_predictions=3, length_penalty=0.3):
-    encoder_input_str = [encoder_input_str]
-    encoder_input_ids = tokenizer(encoder_input_str, return_tensors="pt").input_ids.cuda()
-    input_ids = torch.ones((len(encoder_input_str) * num_beams, 1), device=model.device, dtype=torch.long)
-    input_ids = input_ids * model.config.decoder_start_token_id
-    model_kwargs = {
-        "encoder_outputs": model.get_encoder()(encoder_input_ids.repeat_interleave(num_beams, dim=0), return_dict=True)
-    }
-    beam_scorer = BeamSearchScorer(
-        batch_size=len(encoder_input_str),
-        max_length=model.config.max_length,
-        num_beams=num_beams,
-        device=model.device,
-        num_beam_hyps_to_keep=num_predictions,
-        length_penalty=length_penalty
-    )
-    logits_processor = LogitsProcessorList([])
-    outputs = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor, **model_kwargs)
-    return tokenizer.batch_decode(outputs, skip_special_tokens=True)
-
-def eval_multi_old(model, dataset, args):
-    num_workers = 1
-    batch_size = args.batch_size
-    model.cuda()
-    model.eval()
-    
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers,
-                            collate_fn=dataset._collate_eval)
-    loader = tqdm(data_loader, total=len(data_loader), unit="batches")
-    i = 0
-    beam_size = args.beam_size
-    num_predictions = args.num_predictions
-    length_penalty = args.length_penalty
-    correct = 0
-    print('Beams: %d, Predictions: %d, Length Penalty: %f' % (beam_size, num_predictions, length_penalty))
-    for steps, batch in enumerate(loader):
-        encoder_input_ids, attention_mask, target_text = batch
-        encoder_input_ids = encoder_input_ids.cuda()
-        attention_mask = attention_mask.cuda()
-        input_ids = torch.ones((len(encoder_input_ids) * beam_size, 1), device=model.device, dtype=torch.long)
-        input_ids = input_ids * model.config.decoder_start_token_id
-        model_kwargs = {
-            "encoder_outputs": model.get_encoder()(encoder_input_ids.repeat_interleave(beam_size, dim=0), return_dict=True)
-        }
-        beam_scorer = BeamSearchScorer(
-            batch_size=len(encoder_input_ids),
-            max_length=model.config.max_length,
-            num_beams=beam_size,
-            device=model.device,
-            num_beam_hyps_to_keep=num_predictions,
-            length_penalty = length_penalty
-        )
-        logits_processor = LogitsProcessorList([])
-        outputs = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor, **model_kwargs)
-        # outputs = model.generate(input_ids = encoder_input_ids)
-        # target_text = dataset.tokenizer.batch_decode(labels, skip_special_tokens=True)
-        predicted_text = dataset.tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        input_text = dataset.tokenizer.batch_decode(encoder_input_ids, skip_special_tokens=True)
-        # print(predicted_text, input_text)
-        current_batch_size = len(encoder_input_ids)
-        predicted_grouped = []
-        for i in range(current_batch_size):
-            predicted_grouped.append(predicted_text[i*num_predictions: (i+1)*num_predictions])
-        
-        for i in range(current_batch_size):
-            target = target_text[i]
-            predicted = set(predicted_grouped[i])
-            # print(predicted, target)
-            if target in predicted:
-                correct += 1
-            
-    accuracy = correct/len(dataset)
-    return accuracy    
 
 
 
-def eval_multi(model, dataset, args):
-    model.eval()
-    model.cuda()
-    tokenizer = T5Tokenizer.from_pretrained('t5-small')
-    fname = 'data/codex-m/{}.txt'.format(args.eval_split)
-    f = open(fname, 'r')
-    data = []
-    for line in f:
-        data.append(line.strip())
-    f.close()
-
-    scorer_function = getBeamOutput 
-    # scorer_function = getGreedyOutput 
-    if args.max_points > 0:
-        num_points = args.max_points
-    else:
-        num_points = len(data)
-    correct = 0
-    for id in tqdm(range(0, num_points)):
-        data_point = data[id]
-        input, target = data_point.split('\t')
-        predicted = set(scorer_function(model, tokenizer, input,
-                                        num_beams=args.beam_size,
-                                        num_predictions=args.num_predictions,
-                                        length_penalty=args.length_penalty))
-        print(predicted, input)
-        if target in predicted:
-            correct += 1
-    return correct/num_points
 
 
 def main():
@@ -179,21 +187,31 @@ def main():
     parser.add_argument('--length_penalty',type=float, default=0.3)
     parser.add_argument('--max_points',type=int, default=-1)
     parser.add_argument('--eval_split', type=str, default='test')
+    parser.add_argument('--tokenizer', type=str, default='t5')
+    parser.add_argument('--save_file', type=str, default='scores')
+    parser.add_argument('--task', type=str, default='kgc')
+    parser.add_argument('--hops', type=int, default=1)
                         
     args = parser.parse_args()
     print('Evaluating on split ', args.eval_split)
-    valid_dataset = T5_Dataset(args.eval_split, dataset_name=args.dataset, max_points=args.max_points)
+    if args.task == 'kgc':
+        valid_dataset = T5_Dataset(args.eval_split, dataset_name=args.dataset, tokenizer_type = args.tokenizer, max_points=args.max_points)
+    elif args.task == 'qa':
+        valid_dataset = T5_DatasetQA(args.eval_split, dataset_name=args.dataset, 
+                                     tokenizer_type = args.tokenizer, 
+                                     max_points=args.max_points,
+                                     hops=args.hops)
     checkpoint_location = 'models/{}/{}.pt'.format(args.prefix, args.checkpoint)
     print('Using %s' % checkpoint_location)
     
     model = load_accelerator_model(checkpoint_location, only_model=True)
 
-    if args.beam_size == 1:
-        accuracy = eval(model, valid_dataset, args)
-    else:
-        # accuracy = eval_multi(model, valid_dataset, args)
-        accuracy = eval_multi_old(model, valid_dataset, args)
-    
+    # if args.beam_size == 1:
+    #     accuracy = eval(model, valid_dataset, args)
+    # else:
+    #     # accuracy = eval_multi(model, valid_dataset, args)
+    #     accuracy = eval_multi_old(model, valid_dataset, args)
+    accuracy = eval(model, valid_dataset, args)
     print(accuracy)
 
 

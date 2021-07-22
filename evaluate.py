@@ -37,7 +37,7 @@ class Evaluator:
         return filter_dict
 
     @torch.no_grad()
-    def eval(self):
+    def eval(self, max_points=500):
         self.model.eval()
         loader = tqdm(self.data_loader, total=len(self.data_loader), unit="batch")
         ranks = {
@@ -49,6 +49,8 @@ class Evaluator:
                 "unfiltered": list(),
                 "filtered": list()
             }
+            if steps == max_points:
+                break
             input_ids, attention_mask, label_strings, input_strings = batch
             input_ids = input_ids.to(self.device)
             attention_mask = attention_mask.to(self.device)
@@ -62,6 +64,7 @@ class Evaluator:
             tokenized_entities = self.dataset.tokenized_entities.input_ids.to(
                 self.device
             )
+            pad_token_id = self.dataset.tokenizer.pad_token_id
             # todo: for filtering we need to use only the filtered entities per triple here
             all_entities_repeated = tokenized_entities.repeat([self.batch_size, 1])
             summed_logit_chunks = []
@@ -83,14 +86,17 @@ class Evaluator:
                 soft_logits_chunk = torch.log_softmax(logits_chunk, dim=2)
                 coordinates = all_entities_repeated[chunk_start:chunk_end].view(current_chunk_size, -1, 1)
                 # set padded logits to zero
-                padded_mask = (coordinates == 0).squeeze()
+                # print(coordinates[0])
+                padded_mask = (coordinates == pad_token_id).squeeze()
                 soft_logits_chunk[padded_mask] = 0
+                # print(soft_logits_chunk.shape)
                 needed_soft_logits_chunk = torch.gather(
                     soft_logits_chunk,
                     2,
                     coordinates
                 ).view(current_chunk_size, -1)
-
+                # print(needed_soft_logits_chunk.shape)
+                # exit(0)
                 summed_logits = torch.sum(needed_soft_logits_chunk, dim=1)
                 summed_logit_chunks.append(summed_logits)
             summed_logits = torch.cat(summed_logit_chunks)
@@ -129,14 +135,17 @@ class Evaluator:
         # ranks = np.array(ranks, dtype=np.float32)
         # # add 1 to have best rank 1 not 0
         # ranks += 1
+        total_points = len(self.dataset)
+        if max_points > 0:
+            total_points = max_points
         print("MR", ranks["unfiltered"].mean())
         print("MR-filtered", ranks["filtered"].mean())
         print("MRR", np.power(ranks["unfiltered"], -1).mean())
         print("MRR-filtered", np.power(ranks["filtered"], -1).mean())
-        print("Hits@1", (ranks["unfiltered"] == 1).sum() / len(self.dataset))
-        print("Hits@1-filtered", (ranks["filtered"] == 1).sum() / len(self.dataset))
-        print("Hits@10", (ranks["unfiltered"] <= 10).sum() / len(self.dataset))
-        print("Hits@10-filtered", (ranks["filtered"] <= 10).sum() / len(self.dataset))
+        print("Hits@1", (ranks["unfiltered"] == 1).sum() / total_points)
+        print("Hits@1-filtered", (ranks["filtered"] == 1).sum() / total_points)
+        print("Hits@10", (ranks["unfiltered"] <= 10).sum() / total_points)
+        print("Hits@10-filtered", (ranks["filtered"] <= 10).sum() / total_points)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -151,15 +160,17 @@ def main():
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--split", type=str, default="test")
+    parser.add_argument('--tokenizer', type=str, default='t5')
+    parser.add_argument('--max_points', type=int, default=500)
 
     args = parser.parse_args()
-    valid_dataset = T5_Dataset(args.split, dataset_name=args.dataset)
+    valid_dataset = T5_Dataset(args.split, dataset_name=args.dataset, tokenizer_type = args.tokenizer)
     checkpoint_location = "models/{}/{}.pt".format(args.prefix, args.checkpoint)
     print("Using %s" % checkpoint_location)
 
     model = load_accelerator_model(checkpoint_location, only_model=True)
     evaluator = Evaluator(dataset=valid_dataset, model=model, args=args)
-    evaluator.eval()
+    evaluator.eval(max_points=args.max_points)
 
 
 if __name__ == "__main__":
