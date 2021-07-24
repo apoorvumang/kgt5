@@ -26,6 +26,7 @@ class T5_Dataset(Dataset):
                 max_points=-1,
                 relation_prediction=False,
                 load_data = True, #needed because in subclass we don't want to load data
+                pad_to_max = False, # max padding needed in case of TPU
                 ):
         filename = 'data/{dataset_name}/{split}.txt'.format(
             dataset_name=dataset_name,
@@ -56,16 +57,16 @@ class T5_Dataset(Dataset):
             self.tokenizer = UnigramTokenizer('codexm_rp_20000')
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'sentencepiece':
-            self.tokenizer = SentencePieceTokenizer('wd5m_with_pad', max_tokenize_length=75)
+            self.tokenizer = SentencePieceTokenizer('wd5m_with_pad', max_tokenize_length=75, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'sentencepiece-yago':
-            self.tokenizer = SentencePieceTokenizer('yago_with_pad', max_tokenize_length=60)
+            self.tokenizer = SentencePieceTokenizer('yago_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'sentencepiece-yago2':
-            self.tokenizer = SentencePieceTokenizer('yago_with_pad2', max_tokenize_length=60)
+            self.tokenizer = SentencePieceTokenizer('yago_with_pad2', max_tokenize_length=60, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'metaqa_with_pad':
-            self.tokenizer = SentencePieceTokenizer('metaqa_with_pad', max_tokenize_length=60)
+            self.tokenizer = SentencePieceTokenizer('metaqa_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         else:
             raise NotImplementedError('{} tokenizer not implemented'.format(tokenizer_type))

@@ -15,6 +15,8 @@ class SentencePieceTokenizer(PreTrainedTokenizer):
         self._eos_token_id = self.sp['</s>']
         self.max_tokenize_length = max_tokenize_length
         self.pad_to_max = pad_to_max
+        if self.pad_to_max == True:
+            print('Max length padding enabled (needed for TPU)')
 
     def make_attention_mask(self, encode_output, max_len):
         # padding is with zeros
