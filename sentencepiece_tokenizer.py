@@ -7,13 +7,14 @@ import os
 import sentencepiece as spm
 
 class SentencePieceTokenizer(PreTrainedTokenizer):
-    def __init__(self, prefix='wd5m_with_pad', max_tokenize_length=75):
+    def __init__(self, prefix='wd5m_with_pad', max_tokenize_length=75, pad_to_max = False):
         super()
         path = os.path.join('data/sentencepiece', prefix + '.model')
         self.sp = spm.SentencePieceProcessor(model_file=path)
         self._pad_token_id = self.sp['<pad>']
         self._eos_token_id = self.sp['</s>']
         self.max_tokenize_length = max_tokenize_length
+        self.pad_to_max = pad_to_max
 
     def make_attention_mask(self, encode_output, max_len):
         # padding is with zeros
@@ -31,7 +32,10 @@ class SentencePieceTokenizer(PreTrainedTokenizer):
         for x in out:
             x.append(self._eos_token_id)
 
-        max_len = min(max([len(x) for x in out]), self.max_tokenize_length)
+        if self.pad_to_max:
+            max_len = self.max_tokenize_length
+        else:
+            max_len = min(max([len(x) for x in out]), self.max_tokenize_length)
 
         attention_mask = self.make_attention_mask(out, max_len)
         input_ids = np.ones((len(out), max_len), dtype=np.long) * self._pad_token_id
