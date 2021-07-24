@@ -157,8 +157,8 @@ class T5_Dataset(Dataset):
     def _collate_fn_new(self, items):
         inputs = [item[0] for item in items]
         outputs = [item[1] for item in items]
-        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, max_length=128, return_tensors="pt")
-        outputs_tokenized = self.tokenizer(outputs, padding=True, truncation=True, max_length=32, return_tensors="pt")
+        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, max_length=60, return_tensors="pt")
+        outputs_tokenized = self.tokenizer(outputs, padding=True, truncation=True, max_length=25, return_tensors="pt")
         input_ids, attention_mask = inputs_tokenized.input_ids, inputs_tokenized.attention_mask
         labels, labels_attention_mask = outputs_tokenized.input_ids, outputs_tokenized.attention_mask
         # for labels, set -100 for padding

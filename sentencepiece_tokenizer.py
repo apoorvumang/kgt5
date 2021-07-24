@@ -27,7 +27,6 @@ class SentencePieceTokenizer(PreTrainedTokenizer):
         return attention_mask
 
     # returns BatchEncoding
-    # default parameters in call are not used 
     def __call__(self, text, padding=True, truncation=True, max_length=128, return_tensors="pt"):
         out = self.sp.encode(text)
         # out is a list of list, need to pad and add eos token
@@ -35,7 +34,7 @@ class SentencePieceTokenizer(PreTrainedTokenizer):
             x.append(self._eos_token_id)
 
         if self.pad_to_max:
-            max_len = self.max_tokenize_length
+            max_len = max_length
         else:
             max_len = min(max([len(x) for x in out]), self.max_tokenize_length)
 
