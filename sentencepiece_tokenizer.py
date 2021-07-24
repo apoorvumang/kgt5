@@ -46,6 +46,7 @@ class SentencePieceTokenizer(PreTrainedTokenizer):
 
         input_ids = torch.LongTensor(input_ids)
         attention_mask = torch.LongTensor(attention_mask)
+        print(input_ids.shape, attention_mask.shape)
         data = {'input_ids': input_ids, 'attention_mask': attention_mask}
         return BatchEncoding(data)
 
