@@ -68,6 +68,9 @@ class T5_Dataset(Dataset):
         elif tokenizer_type == 'metaqa_with_pad':
             self.tokenizer = SentencePieceTokenizer('metaqa_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
+        elif tokenizer_type == 'fbwq_with_pad':
+            self.tokenizer = SentencePieceTokenizer('fbwq_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.pad_token_id = self.tokenizer.pad_token_id
         else:
             raise NotImplementedError('{} tokenizer not implemented'.format(tokenizer_type))
         self.tokenizer_type = tokenizer_type
