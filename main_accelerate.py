@@ -118,6 +118,7 @@ def train(model, optimizer, dataset, args=None):
     for epoch in range(args.epochs):
         loader = tqdm(data_loader, total=len(data_loader), unit="batches")
         running_loss = 0
+        epoch_loss = 0
         for steps, batch in enumerate(loader):
             input_ids, attention_mask, labels, labels_attention_mask = batch
             optimizer.zero_grad()
@@ -137,8 +138,9 @@ def train(model, optimizer, dataset, args=None):
                 accelerator.print('Loss: ', loss.item()/len(input_ids)) # divide by batch size
                 running_loss = 0
             running_loss += loss.item()
+            epoch_loss += loss.item()
             
-        accelerator.print('epoch loss ', running_loss)
+        accelerator.print('epoch loss ', epoch_loss)
 
 
 if args.task == 'kgc':
