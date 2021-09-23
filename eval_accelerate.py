@@ -79,15 +79,16 @@ def getScores(ids, scores, pad_token_id):
 
     return final_scores.cpu().detach().numpy()
 
+
 def eval(model, dataset, args):
     num_workers = 1
     batch_size = args.batch_size
     # batch_size = 200
     model.cuda()
     model.eval()
-    print('Doing greedy decoding')
+    print('Using model.generate')
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers,
-                            collate_fn=dataset._collate_eval_with_input_strings)
+                            collate_fn=dataset._collate_eval_with_input_strings, pin_memory=True)
     loader = tqdm(data_loader, total=len(data_loader), unit="batches")
     i = 0
     targets = []
@@ -95,60 +96,68 @@ def eval(model, dataset, args):
     prediction_scores = []
     model_inputs = []
     # all_entities = set(dataset.entity_strings)
-    for steps, batch in enumerate(loader):
-        input_ids, attention_mask, target_text, input_text = batch
-        if args.task == 'kgc':
-            outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
-                                    temperature=1.0,
-                                    do_sample=True,
-                                    num_return_sequences = args.num_predictions,
-                                    num_beams = args.beam_size,
-                                    eos_token_id = dataset.tokenizer.eos_token_id,
-                                    pad_token_id = dataset.tokenizer.pad_token_id,
-                                    output_scores = True,
-                                    return_dict_in_generate=True,
-                                    #  prefix_allowed_tokens_fn=prefixFn,
-                                    )
-        elif args.task == 'qa':
-            # qa only 1 output, greedy decode
-            outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
-                                    do_sample=False,
-                                    eos_token_id = dataset.tokenizer.eos_token_id,
-                                    pad_token_id = dataset.tokenizer.pad_token_id,
-                                    output_scores = True,
-                                    return_dict_in_generate=True,
-                                    #  prefix_allowed_tokens_fn=prefixFn,
-                                    )
-        # predicted_batch = outputs[:, 1:]
-        # print(outputs.keys())
-        # print(outputs['sequences'].shape)
-        # print(outputs['sequences_scores'].shape)
-        # exit(0)
-        sequences = outputs.sequences
-        
-        if args.beam_size > 1:
-            final_scores = outputs.sequences_scores
-        else:
-            scores = outputs.scores
-            final_scores = getScores(sequences, scores, dataset.tokenizer.pad_token_id)
+    with torch.inference_mode():
+        for steps, batch in enumerate(loader):
+            # input_ids, attention_mask, target_text, input_text = batch
+            input_ids, attention_mask, target_text, input_text = batch.inputs_tokenized.input_ids, batch.inputs_tokenized.attention_mask, batch.target_text, batch.inputs
+            if args.task == 'kgc':
+                outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
+                                        temperature=1.0,
+                                        do_sample=True,
+                                        num_return_sequences = args.num_predictions,
+                                        num_beams = args.beam_size,
+                                        eos_token_id = dataset.tokenizer.eos_token_id,
+                                        pad_token_id = dataset.tokenizer.pad_token_id,
+                                        output_scores = True,
+                                        return_dict_in_generate=True,
+                                        length_penalty = args.length_penalty
+                                        #  prefix_allowed_tokens_fn=prefixFn,
+                                        )
+            elif args.task == 'qa':
+                # qa only 1 output, greedy decode
+                outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
+                                        do_sample=False,
+                                        num_return_sequences = args.num_predictions,
+                                        num_beams = args.beam_size,
+                                        eos_token_id = dataset.tokenizer.eos_token_id,
+                                        pad_token_id = dataset.tokenizer.pad_token_id,
+                                        output_scores = True,
+                                        return_dict_in_generate=True,
+                                        length_penalty = args.length_penalty
+                                        #  prefix_allowed_tokens_fn=prefixFn,
+                                        )
+            # predicted_batch = outputs[:, 1:]
+            # print(outputs.keys())
+            # print(outputs['sequences'].shape)
+            # print(outputs['sequences_scores'].shape)
+            # exit(0)
+            sequences = outputs.sequences
+            
+            if args.beam_size > 1:
+                final_scores = outputs.sequences_scores
+            else:
+                scores = outputs.scores
+                final_scores = getScores(sequences, scores, dataset.tokenizer.pad_token_id)
 
-        predicted_text = dataset.tokenizer.batch_decode(sequences, skip_special_tokens=True)
-        # predicted_text = zip(*[iter(predicted_text)]*args.num_predictions)
-        if args.task == 'kgc':
-            predicted_text = grouper(predicted_text, args.num_predictions) # grouping only needed if multiple predictions
-            final_scores = grouper(final_scores, args.num_predictions)
-        elif args.task == 'qa':
-            final_scores = final_scores.tolist()
-        # for j in range(len(predicted_text)):
-        #     for i in range(len(predicted_text[j])):
-        #         print(predicted_text[j][i], final_scores[j][i].item())
-        #     print()
-        # exit(0)
-        # print(len(predicted_text[0]))
-        targets.extend(target_text)
-        model_inputs.extend(input_text)
-        predictions.extend(predicted_text)
-        prediction_scores.extend(final_scores)
+            predicted_text = dataset.tokenizer.batch_decode(sequences, skip_special_tokens=True)
+            # predicted_text = zip(*[iter(predicted_text)]*args.num_predictions)
+            # if len(predicted_text) == current batch size, no grouping needed, otherwise group
+            if len(predicted_text) == len(input_text):
+                final_scores = final_scores.tolist()
+            else:
+                predicted_text = grouper(predicted_text, args.num_predictions) # grouping only needed if multiple predictions
+                final_scores = grouper(final_scores, args.num_predictions)
+                
+            # for j in range(len(predicted_text)):
+            #     for i in range(len(predicted_text[j])):
+            #         print(predicted_text[j][i], final_scores[j][i].item())
+            #     print()
+            # exit(0)
+            # print(len(predicted_text[0]))
+            targets.extend(target_text)
+            model_inputs.extend(input_text)
+            predictions.extend(predicted_text)
+            prediction_scores.extend(final_scores)
             
     correct = 0
     num_not_in_entities = 0
@@ -157,8 +166,17 @@ def eval(model, dataset, args):
             if t in p:
                 correct += 1
         elif args.task == 'qa':
-            if p in t:
+            # TODO: in 'how much info..' it is said that exact match is done after lowercase + remove punctuation
+            # trying that here
+            t = [x.lower() for x in t]
+            if isinstance(p, list):
+                p = [x.lower() for x in p]
+            else:
+                p = [p.lower()]
+            if len(set(t).intersection(set(p))) > 0:
                 correct += 1
+            # if p in t:
+            #     correct += 1
         # if p not in all_entities:
         #     num_not_in_entities += 1
     # print(num_not_in_entities/len(predictions), 'predictions were not entities')
@@ -184,7 +202,7 @@ def main():
     parser.add_argument('--batch_size',type=int, default=200)
     parser.add_argument('--beam_size',type=int, default=1)
     parser.add_argument('--num_predictions',type=int, default=1)
-    parser.add_argument('--length_penalty',type=float, default=0.3)
+    parser.add_argument('--length_penalty',type=float, default=1.0)
     parser.add_argument('--max_points',type=int, default=-1)
     parser.add_argument('--eval_split', type=str, default='test')
     parser.add_argument('--tokenizer', type=str, default='t5')

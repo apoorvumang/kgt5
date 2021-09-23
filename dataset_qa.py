@@ -21,6 +21,19 @@ from dataset import T5_Dataset
 import random
 from unidecode import unidecode
 
+class EvalBatchQA:
+    def __init__(self, items, tokenizer):
+        self.inputs = [item[0] for item in items]
+        self.target_text = [item[1] for item in items]
+        self.inputs_tokenized = tokenizer(self.inputs, padding=True, truncation=True, return_tensors="pt")
+
+    # custom memory pinning method on custom type
+    def pin_memory(self):
+        self.inputs_tokenized.input_ids = self.inputs_tokenized.input_ids.pin_memory()
+        self.inputs_tokenized.attention_mask = self.inputs_tokenized.attention_mask.pin_memory()
+        return self
+
+
 class T5_DatasetQA(T5_Dataset):
     def __init__(self, 
                 split,
@@ -36,8 +49,54 @@ class T5_DatasetQA(T5_Dataset):
             split=split,
             hops=hops
         )
-        self.data = self.loadData(filename, max_points)
-    
+        max_ans_per_item = 1 # how many max answers per question, when splitting
+        # for fbwq_half, we want load data same as MetaQA
+        # for fbwq_full, no entity stuff, plain qa
+        if dataset_name == 'fbwq_half_lego':
+            self.data = self.loadData(filename, max_points)
+            print(self.data['inputs'][0], self.data['outputs'][0])
+        elif dataset_name == 'fbwq_full':
+            self.data = self.loadDataSpecial(filename, max_points)
+            print(self.data['inputs'][0], self.data['outputs'][0])
+        elif dataset_name == 'cwq_half':
+            self.data = self.loadDataNoTopicEntity(filename, max_points)
+            print(self.data['inputs'][0], self.data['outputs'][0])
+        else:
+            max_ans_per_item = 5
+            self.data = self.loadData(filename, max_points)
+            print(self.data['inputs'][0], self.data['outputs'][0])
+        # if train data, we want lines with too many answers to be split
+        if 'train' in split:
+            print('Splitting QA data for split %s' % split)
+            print('Before splitting. number of points:', len(self.data['inputs']))
+            self.splitPointsWithTooManyAnswers(max_ans_per_item)
+            print('After splitting:', len(self.data['inputs']))
+
+    def splitPointsWithTooManyAnswers(self, max_answers=5):
+        data = self.data
+        new_inputs = []
+        new_outputs = []
+        inputs = data['inputs']
+        outputs = data['outputs']
+        print('Max answers', max_answers)
+        for i, o in zip(inputs, outputs):
+            if len(o) <= max_answers:
+                new_inputs.append(i)
+                new_outputs.append(o)
+            else:
+                num_answers = len(o)
+                for index in range(0, num_answers, max_answers):
+                    answers_slice = o[index:index+max_answers]
+                    new_inputs.append(i)
+                    new_outputs.append(answers_slice)
+        self.data['inputs'] = new_inputs
+        self.data['outputs'] = new_outputs
+
+    def getHeadFromInput(self, input):
+        x = input.split(':')[1][1:]
+        ent = x.split('|')[0][:-1]
+        return ent
+
     def separateEntity(self, question, replacement='NE'):
         split1 = question.split('[')
         lhs = split1[0]
@@ -67,6 +126,54 @@ class T5_DatasetQA(T5_Dataset):
             line = line.split('\t')
             question, head_entity = self.separateEntity(line[0])
             input = 'predict answer: {0} | {1} |'.format(head_entity, question)
+            output = line[1].split('|') # multiple entities can be answer
+            output = [self.normalizeEntity(o) for o in output]
+            inputs.append(input)
+            outputs.append(output)
+        data = {'inputs': inputs, 'outputs': outputs}
+        return data
+
+    def loadDataSpecial(self, filename, max_points):
+        print('Special load data: not formatting like head/tail prediction')
+        file_len = self.numLines(filename)
+        f = open(filename, 'r')
+        inputs = []
+        outputs = []
+        for i in tqdm(range(file_len)):
+        # for i in range(file_len):
+            if i == max_points:
+                break
+            line = f.readline()
+            if line[-1] == '\n':
+                line = line[:-1]
+            line = line.split('\t')
+            # question, head_entity = self.separateEntity(line[0])
+            question = line[0].replace('[', '').replace(']', '')
+            input = 'predict answer: {0}'.format(question)
+            output = line[1].split('|') # multiple entities can be answer
+            output = [self.normalizeEntity(o) for o in output]
+            inputs.append(input)
+            outputs.append(output)
+        data = {'inputs': inputs, 'outputs': outputs}
+        return data
+
+    def loadDataNoTopicEntity(self, filename, max_points):
+        print('Special load data: no topic entity present, not formatting like head/tail prediction')
+        file_len = self.numLines(filename)
+        f = open(filename, 'r')
+        inputs = []
+        outputs = []
+        for i in tqdm(range(file_len)):
+        # for i in range(file_len):
+            if i == max_points:
+                break
+            line = f.readline()
+            if line[-1] == '\n':
+                line = line[:-1]
+            line = line.split('\t')
+            # question, head_entity = self.separateEntity(line[0])
+            question = line[0]
+            input = 'predict answer: {0}'.format(question)
             output = line[1].split('|') # multiple entities can be answer
             output = [self.normalizeEntity(o) for o in output]
             inputs.append(input)
@@ -104,6 +211,7 @@ class T5_DatasetQA(T5_Dataset):
         return inputs_tokenized.input_ids, inputs_tokenized.attention_mask, target_texts
 
     def _collate_eval_with_input_strings(self, items):
+        return EvalBatchQA(items, self.tokenizer)
         inputs = [item[0] for item in items]
         target_texts = [item[1] for item in items] # targets is array of entities
         inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt")

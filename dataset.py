@@ -18,6 +18,20 @@ from tokenizers import Tokenizer
 from unigram_tokenizer import UnigramTokenizer
 from sentencepiece_tokenizer import SentencePieceTokenizer
 
+
+class EvalBatch:
+    def __init__(self, items, tokenizer):
+        self.inputs = [item[0] for item in items]
+        self.target_text = [item[1] for item in items]
+        self.inputs_tokenized = tokenizer(self.inputs, padding=True, truncation=True, return_tensors="pt")
+
+    # custom memory pinning method on custom type
+    def pin_memory(self):
+        self.inputs_tokenized.input_ids = self.inputs_tokenized.input_ids.pin_memory()
+        self.inputs_tokenized.attention_mask = self.inputs_tokenized.attention_mask.pin_memory()
+        return self
+
+
 class T5_Dataset(Dataset):
     def __init__(self, 
                 split,
@@ -28,6 +42,7 @@ class T5_Dataset(Dataset):
                 load_data = True, #needed because in subclass we don't want to load data
                 pad_to_max = False, # max padding needed in case of TPU
                 ):
+        # pad_to_max = True
         filename = 'data/{dataset_name}/{split}.txt'.format(
             dataset_name=dataset_name,
             split=split,
@@ -70,6 +85,15 @@ class T5_Dataset(Dataset):
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'fbwq_with_pad':
             self.tokenizer = SentencePieceTokenizer('fbwq_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.pad_token_id = self.tokenizer.pad_token_id
+        elif tokenizer_type == 'codexm_with_pad':
+            self.tokenizer = SentencePieceTokenizer('codexm_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.pad_token_id = self.tokenizer.pad_token_id
+        elif tokenizer_type == 'codex_with_pad':
+            self.tokenizer = SentencePieceTokenizer('codex_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.pad_token_id = self.tokenizer.pad_token_id
+        elif tokenizer_type == 'fbwq_half_lego_with_pad':
+            self.tokenizer = SentencePieceTokenizer('fbwq_half_lego_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         else:
             raise NotImplementedError('{} tokenizer not implemented'.format(tokenizer_type))
@@ -160,8 +184,9 @@ class T5_Dataset(Dataset):
     def _collate_fn_new(self, items):
         inputs = [item[0] for item in items]
         outputs = [item[1] for item in items]
-        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, max_length=60, return_tensors="pt")
-        outputs_tokenized = self.tokenizer(outputs, padding=True, truncation=True, max_length=25, return_tensors="pt")
+        # changed 60->80 and 25 -> 35 for cwq, trying fp16
+        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, max_length=80, return_tensors="pt")
+        outputs_tokenized = self.tokenizer(outputs, padding=True, truncation=True, max_length=35, return_tensors="pt")
         input_ids, attention_mask = inputs_tokenized.input_ids, inputs_tokenized.attention_mask
         labels, labels_attention_mask = outputs_tokenized.input_ids, outputs_tokenized.attention_mask
         # for labels, set -100 for padding
@@ -177,10 +202,11 @@ class T5_Dataset(Dataset):
         return inputs_tokenized.input_ids, inputs_tokenized.attention_mask, target_text
 
     def _collate_eval_with_input_strings(self, items):
-        inputs = [item[0] for item in items]
-        target_text = [item[1] for item in items]
-        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt")
-        return inputs_tokenized.input_ids, inputs_tokenized.attention_mask, target_text, inputs
+        return EvalBatch(items, self.tokenizer)
+        # inputs = [item[0] for item in items]
+        # target_text = [item[1] for item in items]
+        # inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt")
+        # return inputs_tokenized.input_ids, inputs_tokenized.attention_mask, target_text, inputs
 
 
     def _collate_eval_2(self, items):

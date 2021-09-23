@@ -74,8 +74,13 @@ parser.add_argument('--tokenizer',type=str,
 parser.add_argument('--relation_prediction',type=int,
                     default=0)
 
+parser.add_argument('--use_lm_pretraining',type=int,
+                    default=0)
+
 parser.add_argument('--task', type=str, default='kgc')
 parser.add_argument('--hops', type=int, default=1)
+parser.add_argument('--force_lr', type=int, default=0)
+parser.add_argument('--start_steps', type=int, default=0)
 
 args = parser.parse_args()
 
@@ -152,12 +157,15 @@ elif args.task == 'qa':
 else:
     raise NotImplementedError('{} task not implemented'.format(args.task))
 
-args.start_steps = 0
 if 't5' not in args.model_size: # TODO: remove the need for this
     args.model_size = 't5-{}'.format(args.model_size)
 kwargs = {'vocab_size': train_dataset.vocab_size}
-config = T5Config().from_pretrained(args.model_size, **kwargs)
-model = T5ForConditionalGeneration(config)
+if args.use_lm_pretraining == 0:
+    config = T5Config().from_pretrained(args.model_size, **kwargs)
+    model = T5ForConditionalGeneration(config)
+else:
+    print('Using pretrained lm of size %s' % args.model_size)
+    model = T5ForConditionalGeneration.from_pretrained(args.model_size)
 
 
 if args.optimizer == 'adafactor':
@@ -183,9 +191,16 @@ if args.resume != None:
 elif args.load_checkpoint != None:
     accelerator.print('Loading from {}'.format(args.load_checkpoint))
     model, optimizer, _, _ = load_accelerator_model('models/{}'.format(args.load_checkpoint))
+    if args.force_lr == 1:
+        print('Forcing lr to {}'.format(args.learning_rate))
+        optimizer = Adafactor(model.parameters(), scale_parameter=False, relative_step=False, warmup_init=False, lr=args.learning_rate)
     accelerator.print('Loaded')
 else:
-    accelerator.print('Starting fresh')
-    accelerator.print(config)
+    
+    if args.use_lm_pretraining == 0:
+        accelerator.print('Starting fresh')
+        accelerator.print(config)
+    else:
+        print('Might be using pretrained lm')
     
 train(model, optimizer, train_dataset, args)

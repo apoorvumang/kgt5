@@ -1,0 +1,34 @@
+CUDA_VISIBLE_DEVICES=1 python3 eval_accelerate.py --prefix fbwq_qa_half_kg_lm_pt \
+--dataset fbwq_half --batch_size 200 --beam_size 1 --num_predictions 1 \
+--max_points -1 --checkpoint 5000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer t5 --save_file scores_temp
+
+
+CUDA_VISIBLE_DEVICES=1 python3 eval_accelerate.py --prefix fbwq_half_kg_try2  \
+--dataset fbwq_half --batch_size 2 --beam_size 1 --num_predictions 100 \
+--max_points 500 --checkpoint 220000 --eval_split test \
+--tokenizer fbwq_with_pad --save_file scores_temp2
+
+
+
+
+OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7 python3 -m torch.distributed.launch --nproc_per_node 7 --use_env ./main_accelerate.py \
+--save_prefix wd5m_test \
+--model_size small --dataset wikidata5m \
+--tokenizer sentencepiece \
+--batch_size 100 --save_steps 2500 \
+--loss_steps 250 \
+--epochs 5
+
+
+
+OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=1,4 python3 -m torch.distributed.launch --nproc_per_node 2 --use_env ./main_accelerate.py \
+--save_prefix fbwq_half_lego_kg \
+--model_size small --dataset fbwq_half_lego \
+--tokenizer fbwq_half_lego_with_pad \
+--batch_size 100 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 50
+
+
