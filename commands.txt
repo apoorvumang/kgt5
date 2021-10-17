@@ -32,3 +32,41 @@ OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=1,4 python3 -m torch.distributed.launch -
 --epochs 50
 
 
+CUDA_VISIBLE_DEVICES=5 python3 main_accelerate.py \
+--save_prefix fbwq_half_lego_qa_base_try3 \
+--model_size base --dataset fbwq_half_lego \
+--tokenizer t5 \
+--batch_size 40 --save_steps 1000 \
+--loss_steps 250 \
+--task qa --hops 1 \
+--epochs 50 --load_checkpoint fbwq_half_lego_kg_base/230000.pt
+
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix fbwq_half_lego_qa_base_try3 \
+--dataset fbwq_half_lego --batch_size 100 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 8000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer t5 --save_file scores_temp
+
+
+
+CUDA_VISIBLE_DEVICES=4 python3 main_accelerate.py \
+--save_prefix fbwq_half_lego_qa_base_try4 \
+--model_size base --dataset fbwq_half_lego \
+--tokenizer t5 \
+--batch_size 40 --save_steps 1000 \
+--loss_steps 250 \
+--task qa --hops 1 \
+--epochs 50 --load_checkpoint fbwq_half_lego_kg_base_try2/45000.pt
+
+
+
+OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=1,2,3,4 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix fbwq_half_lego_qa_base_mixed \
+--model_size base --dataset fbwq_half_lego_mixed \
+--tokenizer t5 \
+--batch_size 40 --save_steps 10000 \
+--loss_steps 250 \
+--epochs 50 \
+--load_checkpoint fbwq_half_lego_kg_base/235000.pt

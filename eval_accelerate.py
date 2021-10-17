@@ -100,6 +100,9 @@ def eval(model, dataset, args):
         for steps, batch in enumerate(loader):
             # input_ids, attention_mask, target_text, input_text = batch
             input_ids, attention_mask, target_text, input_text = batch.inputs_tokenized.input_ids, batch.inputs_tokenized.attention_mask, batch.target_text, batch.inputs
+            # TODO: for all evaluations, following was 
+            # if args.task == 'kgc'
+            # elif args.task == 'qa'
             if args.task == 'kgc':
                 outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
                                         temperature=1.0,
@@ -168,11 +171,14 @@ def eval(model, dataset, args):
         elif args.task == 'qa':
             # TODO: in 'how much info..' it is said that exact match is done after lowercase + remove punctuation
             # trying that here
-            t = [x.lower() for x in t]
+            # however, for MetaQA, we probably shouldn't do it?
+            # t = [x.lower() for x in t]
             if isinstance(p, list):
-                p = [x.lower() for x in p]
+                pass
+                # p = [x.lower() for x in p]
             else:
-                p = [p.lower()]
+                # p = [p.lower()]
+                p = [p]
             if len(set(t).intersection(set(p))) > 0:
                 correct += 1
             # if p in t:

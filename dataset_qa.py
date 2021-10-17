@@ -62,7 +62,7 @@ class T5_DatasetQA(T5_Dataset):
             self.data = self.loadDataNoTopicEntity(filename, max_points)
             print(self.data['inputs'][0], self.data['outputs'][0])
         else:
-            max_ans_per_item = 5
+            max_ans_per_item = 500
             self.data = self.loadData(filename, max_points)
             print(self.data['inputs'][0], self.data['outputs'][0])
         # if train data, we want lines with too many answers to be split
@@ -125,6 +125,7 @@ class T5_DatasetQA(T5_Dataset):
                 line = line[:-1]
             line = line.split('\t')
             question, head_entity = self.separateEntity(line[0])
+            head_entity = self.normalizeEntity(head_entity)
             input = 'predict answer: {0} | {1} |'.format(head_entity, question)
             output = line[1].split('|') # multiple entities can be answer
             output = [self.normalizeEntity(o) for o in output]

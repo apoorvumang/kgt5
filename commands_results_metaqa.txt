@@ -1,0 +1,381 @@
+CUDA_VISIBLE_DEVICES=4 python3 main_accelerate.py \
+--save_prefix metaqa_half_kg_var_allents3 \
+--model_size small --dataset MetaQA_half_allents3 \
+--tokenizer metaqa_with_pad \
+--batch_size 100 --save_steps 10000 \
+--loss_steps 250 \
+--epochs 50
+
+
+CUDA_VISIBLE_DEVICES=0 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_1hop_var2 \
+--model_size small --dataset MetaQA_half2 \
+--tokenizer metaqa_with_pad \
+--batch_size 100 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 30 \
+--task qa --hops 1 \
+--load_checkpoint metaqa_half_kg_var2/70000.pt
+
+
+
+CUDA_VISIBLE_DEVICES=3 python3 eval_accelerate.py --prefix metaqa_half_qa_1hop_var2 \
+--dataset MetaQA_half2 --batch_size 100 --beam_size 1 --num_predictions 1 \
+--max_points -1 --checkpoint 5000 --eval_split test \
+--tokenizer metaqa_with_pad --save_file scores_temp \
+--hops 1 --task qa
+
+
+CUDA_VISIBLE_DEVICES=3 python3 eval_accelerate.py --prefix metaqa_qa_1hop_half_kg \
+--dataset MetaQA_half2 --batch_size 100 --beam_size 1 --num_predictions 1 \
+--max_points -1 --checkpoint 5000 --eval_split test \
+--tokenizer metaqa_with_pad --save_file scores_temp \
+--hops 1 --task qa
+
+
+
+CUDA_VISIBLE_DEVICES=3 python3 eval_accelerate.py --prefix metaqa_qa_1hop_half_kg_nopretrain \
+--dataset MetaQA_half --batch_size 100 --beam_size 1 --num_predictions 1 \
+--max_points -1 --checkpoint 95000 --eval_split test \
+--tokenizer metaqa_with_pad --save_file scores_temp \
+--hops 1 --task qa
+
+
+
+CUDA_VISIBLE_DEVICES=1 python3 eval_accelerate.py --prefix metaqa_qa_1hop_half_kg \
+--dataset MetaQA_half --batch_size 100 --beam_size 1 --num_predictions 1 \
+--max_points -1 --checkpoint 35000 --eval_split test \
+--tokenizer metaqa_with_pad --save_file scores_temp \
+--hops 1 --task qa
+
+
+
+
+
+CUDA_VISIBLE_DEVICES=0 python3 main_accelerate.py \
+--save_prefix metaqa_half_kg_only_var_allents3 \
+--model_size small --dataset MetaQA_half_allents3 \
+--tokenizer metaqa_with_pad \
+--batch_size 100 --save_steps 10000 \
+--loss_steps 250 \
+--epochs 200 \
+
+
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix metaqa_half_qa_1hop_var3 \
+--dataset MetaQA_half2 --batch_size 200 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 120000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer metaqa_with_pad --save_file scores_temp 
+
+
+
+
+CUDA_VISIBLE_DEVICES=0 python3 main_accelerate.py \
+--save_prefix metaqa_half_kg_only3 \
+--model_size small --dataset MetaQA_half \
+--tokenizer metaqa_with_pad \
+--batch_size 100 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 30 \
+--relation_prediction 0
+
+
+
+
+
+ CUDA_VISIBLE_DEVICES=5 python3 main_accelerate.py \
+--save_prefix metaqa_half_kg_var_try2 \
+--model_size small --dataset MetaQA_half2 \
+--tokenizer metaqa_with_pad \
+--batch_size 100 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 30 \
+--relation_prediction 0
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 main_accelerate.py \
+--save_prefix cwq_half_from_kg_pt2 \
+--model_size small --dataset cwq_half \
+--tokenizer t5 \
+--batch_size 40 --save_steps 2000 \
+--loss_steps 250 \
+--task qa --hops 1 \
+--epochs 500 \
+--load_checkpoint cwq_half_kg/770000.pt
+
+
+
+CUDA_VISIBLE_DEVICES=0 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_1hop_var2 \
+--model_size small --dataset MetaQA_half2 \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task qa --hops 1 \
+--load_checkpoint metaqa_half_kg_only_var2/280000.pt
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 main_accelerate.py \
+--save_prefix cwq_half_qa_kgpt2 \
+--model_size small --dataset cwq_half \
+--tokenizer t5 \
+--batch_size 40 --save_steps 2000 \
+--loss_steps 250 \
+--task qa --hops 1 \
+--epochs 500 \
+--load_checkpoint cwq_half_kg_fromscratch/770000.pt
+
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix cwq_half_qa_kgpt2 \
+--dataset cwq_half --batch_size 50 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 12000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer t5 \
+--save_file scores_temp4
+
+
+
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_1hop_var_allents3 \
+--model_size small --dataset MetaQA_half_allents3 \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task qa --hops 1 \
+--load_checkpoint metaqa_half_kg_only_var_allents3/280000.pt
+
+
+
+
+
+
+## variance evals
+
+
+
+# run var_allents2 and var_allents3 for more epochs
+
+
+CUDA_VISIBLE_DEVICES=5 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_1hop_var_allents3 \
+--model_size small --dataset MetaQA_half_allents3 \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task qa --hops 1 \
+--load_checkpoint metaqa_half_qa_1hop_var_allents3/290000.pt \
+--start_steps 290000
+
+
+
+CUDA_VISIBLE_DEVICES=4 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_1hop_var_allents2 \
+--model_size small --dataset MetaQA_half_allents2 \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task qa --hops 1 \
+--load_checkpoint metaqa_half_qa_1hop_var_allents2/140000.pt \
+--start_steps 140000
+
+
+
+CUDA_VISIBLE_DEVICES=0 python3 eval_accelerate.py --prefix metaqa_half_qa_1hop_var_allents2 \
+--dataset MetaQA_half2 --batch_size 300 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 175000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer metaqa_with_pad --save_file scores_temp 
+
+
+
+
+CUDA_VISIBLE_DEVICES=0 python3 eval_accelerate.py --prefix metaqa_half_qa_1hop_var_allents3 \
+--dataset MetaQA_half2 --batch_size 200 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 290000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer metaqa_with_pad --save_file scores_temp 
+
+
+
+
+
+CUDA_VISIBLE_DEVICES=0 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_1hop_var2 \
+--model_size small --dataset MetaQA_half \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task qa --hops 1 \
+--load_checkpoint metaqa_half_kg_only_var2/280000.pt
+
+
+
+
+CUDA_VISIBLE_DEVICES=3 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_1hop_var3 \
+--model_size small --dataset MetaQA_half \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task qa --hops 1 \
+--load_checkpoint metaqa_half_kg_only_var3/280000.pt
+
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix metaqa_half_kg_only2 \
+--dataset MetaQA_half2 --batch_size 200 --beam_size 1 --num_predictions 10 \
+--max_points 1000 --checkpoint 140000 --eval_split test \
+--tokenizer metaqa_with_pad --save_file scores_temp 
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix metaqa_half_qa_1hop_var2 \
+--dataset MetaQA_half2 --batch_size 200 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 5000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer metaqa_with_pad --save_file scores_tes 
+
+
+###### correct code for k-hop reasoning starts here?
+
+
+
+CUDA_VISIBLE_DEVICES=3 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_1hop_mixed_data \
+--model_size small --dataset MetaQA_half_1hop \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task kgc \
+--load_checkpoint metaqa_half_kg_only_var2/280000.pt
+
+
+
+CUDA_VISIBLE_DEVICES=0 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_2hop_mixed_data \
+--model_size small --dataset MetaQA_half_2hop \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task kgc \
+--load_checkpoint metaqa_half_kg_only_var2/280000.pt
+
+CUDA_VISIBLE_DEVICES=5 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_3hop_mixed_data \
+--model_size small --dataset MetaQA_half_3hop \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task kgc \
+--load_checkpoint metaqa_half_kg_only_var2/280000.pt
+
+
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix metaqa_half_qa_1hop_mixed_data \
+--dataset MetaQA_half --batch_size 200 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 35000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer metaqa_with_pad --save_file scores_test
+
+
+
+CUDA_VISIBLE_DEVICES=4 python3 eval_accelerate.py --prefix metaqa_half_qa_2hop_mixed_data \
+--dataset MetaQA_half --batch_size 200 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 10000 --eval_split test \
+--task qa --hops 2 \
+--tokenizer metaqa_with_pad --save_file scores_test
+
+
+
+
+CUDA_VISIBLE_DEVICES=4 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_1hop_mixed_data_allents \
+--model_size small --dataset MetaQA_half_1hop_allents \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task kgc \
+--load_checkpoint metaqa_half_kg_only_var_allents/280000.pt
+
+
+
+CUDA_VISIBLE_DEVICES=3 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_3hop_mixed_data_allents \
+--model_size small --dataset MetaQA_half_3hop_allents \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task kgc \
+--load_checkpoint metaqa_half_kg_only_var_allents/280000.pt
+
+
+
+
+CUDA_VISIBLE_DEVICES=1 python3 main_accelerate.py \
+--save_prefix cwq_half_qa_from_kg_pt_try2 \
+--model_size small --dataset cwq_half \
+--tokenizer t5 \
+--batch_size 40 --save_steps 2000 \
+--loss_steps 250 \
+--task qa --hops 1 \
+--epochs 500 \
+--load_checkpoint cwq_half_kg_both_predict_fromscratch/925000.pt
+
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix metaqa_half_qa_2hop_mixed_data \
+--dataset MetaQA_half --batch_size 100 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 935000 --eval_split test \
+--task qa --hops 2 \
+--tokenizer metaqa_with_pad --save_file scores_temp1
+
+
+
+
+CUDA_VISIBLE_DEVICES=4 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_1hop_mixed_data_allents \
+--model_size small --dataset MetaQA_half_1hop_allents \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task kgc \
+--load_checkpoint metaqa_half_qa_1hop_mixed_data_allents/405000.pt
+
+
+
+
+
+CUDA_VISIBLE_DEVICES=0 python3 main_accelerate.py \
+--save_prefix metaqa_half_qa_2hop_mixed_data \
+--model_size small --dataset MetaQA_half_2hop \
+--tokenizer metaqa_with_pad \
+--batch_size 80 --save_steps 5000 \
+--loss_steps 250 \
+--epochs 100 \
+--task kgc \
+--load_checkpoint metaqa_half_kg_only_var2/280000.pt
