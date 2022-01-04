@@ -100,10 +100,10 @@ def eval(model, dataset, args):
         for steps, batch in enumerate(loader):
             # input_ids, attention_mask, target_text, input_text = batch
             input_ids, attention_mask, target_text, input_text = batch.inputs_tokenized.input_ids, batch.inputs_tokenized.attention_mask, batch.target_text, batch.inputs
-            # TODO: for all evaluations, following was 
+            # TODO: for all evaluations, following was used
             # if args.task == 'kgc'
             # elif args.task == 'qa'
-            if args.task == 'kgc':
+            if args.num_predictions > args.beam_size:
                 outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
                                         temperature=1.0,
                                         do_sample=True,
@@ -113,10 +113,12 @@ def eval(model, dataset, args):
                                         pad_token_id = dataset.tokenizer.pad_token_id,
                                         output_scores = True,
                                         return_dict_in_generate=True,
-                                        length_penalty = args.length_penalty
+                                        length_penalty = args.length_penalty,
+                                        # top_p=0.95,
+                                        # top_k=250,
                                         #  prefix_allowed_tokens_fn=prefixFn,
                                         )
-            elif args.task == 'qa':
+            else:
                 # qa only 1 output, greedy decode
                 outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
                                         do_sample=False,

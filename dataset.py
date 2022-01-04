@@ -98,6 +98,18 @@ class T5_Dataset(Dataset):
         elif tokenizer_type == 'webqsp_ents_as_tokens':
             self.tokenizer = SentencePieceTokenizer('webqsp_ents_as_tokens', max_tokenize_length=60, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
+        elif tokenizer_type == 'sp_wd5m_v2':
+            # this is BPE sentencepiece tokenizer
+            # trained on wd5m_v2 verbalized
+            # using command
+            # sp = spm.SentencePieceTrainer.train(input=sp_data_fname,
+            # model_prefix='sp_wd5m_v2', 
+            # vocab_size=vocab_size, 
+            # user_defined_symbols=user_defined_symbols,
+            # model_type='BPE',
+            # pad_id=3)
+            self.tokenizer = SentencePieceTokenizer('sp_wd5m_v2', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.pad_token_id = self.tokenizer.pad_token_id
         else:
             raise NotImplementedError('{} tokenizer not implemented'.format(tokenizer_type))
         self.tokenizer_type = tokenizer_type
