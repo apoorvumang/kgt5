@@ -14,15 +14,12 @@ import argparse
 import os
 from utils_accelerate import *
 
-accelerator = Accelerator()
-device = accelerator.device
 
 
 
-def save_accelerator_model(model, optimizer, steps, loss, args):
+def save_accelerator_model(model, optimizer, accelerator, steps, loss, args):
     # TODO:check how many models of that name exist
     # delete the last k
-    global accelerator, device
     folder_name = 'models/{}'.format(args.save_prefix)
     try:
         os.mkdir(folder_name)
@@ -39,8 +36,8 @@ def save_accelerator_model(model, optimizer, steps, loss, args):
     accelerator.print('Model/optimizer saved at {}'.format(file_name))
     
 
-def train(model, optimizer, dataset, args=None):
-    global accelerator, device
+def train(model, optimizer, accelerator, dataset, args=None):
+    device = accelerator.device
     num_workers = args.num_workers
     batch_size = args.batch_size
     loss_steps = args.loss_steps
@@ -69,7 +66,7 @@ def train(model, optimizer, dataset, args=None):
             optimizer.step()
             if num_steps % save_steps == 0:
                 accelerator.print('Saving at step %d' % num_steps)
-                save_accelerator_model(model, optimizer, num_steps, loss.item(), args)
+                # save_accelerator_model(model, optimizer, accelerator, num_steps, loss.item(), args)
             num_steps += 1
             if num_steps % loss_steps == 0:
                 # accelerator.print('Loss: ', running_loss/loss_steps)
@@ -84,6 +81,8 @@ def train(model, optimizer, dataset, args=None):
 
 
 def main():
+    accelerator = Accelerator()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--save_prefix',type=str,
                         default='temp',
@@ -214,7 +213,7 @@ def main():
         else:
             print('Might be using pretrained lm')
         
-    train(model, optimizer, train_dataset, args)
+    train(model, optimizer, accelerator, train_dataset, args)
 
 
 if __name__ == "__main__":
