@@ -70,3 +70,87 @@ OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=1,2,3,4 python3 -m torch.distributed.laun
 --loss_steps 250 \
 --epochs 50 \
 --load_checkpoint fbwq_half_lego_kg_base/235000.pt
+
+
+
+
+CUDA_VISIBLE_DEVICES=1 python3 eval_accelerate.py --prefix codex-s_small_1gpu \
+--dataset codex-s --batch_size 2 --beam_size 1 --num_predictions 200 \
+--max_points -1 --checkpoint 81000 --eval_split test \
+--tokenizer t5 --save_file scores_codex-s
+
+
+fbwq_half_lego_qa_base_mixed
+
+
+
+CUDA_VISIBLE_DEVICES=1 python3 eval_accelerate.py --prefix fbwq_half_lego_qa_base_mixed \
+--dataset fbwq_half_lego --batch_size 20 --beam_size 4 --num_predictions 1 \
+--max_points -1 --checkpoint 70000 --eval_split test \
+--task qa --hops
+--tokenizer t5 --save_file scores_fbwq_half_lego_1predict
+
+
+
+CUDA_VISIBLE_DEVICES=3 python3 eval_accelerate.py --prefix wd5m-sentencepiece-rp  \
+--dataset fbwq_half --batch_size 1 --beam_size 1 --num_predictions 200 \
+--max_points 100 --checkpoint 530000 --eval_split test \
+--tokenizer sentencepiece --save_file scores_wd5m_beam
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix codex-s_small_1gpu \
+--dataset codex-s --batch_size 50 --beam_size 5 --num_predictions 5 --max_points -1 \
+--checkpoint 51000 --eval_split test --tokenizer t5 \
+--save_file scores_codex-s_s
+
+
+
+
+OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix wd5m_v2_small \
+--model_size small --dataset wikidata5m_v2 \
+--tokenizer sp_wd5m_v2 \
+--batch_size 80 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 50 
+
+
+
+CUDA_VISIBLE_DEVICES=3 python3 eval_accelerate.py --prefix wd5m_v2_small  \
+--dataset wikidata5m_v2 --batch_size 10 --beam_size 1 --num_predictions 20 \
+--max_points 100 --checkpoint 500000 --eval_split test \
+--tokenizer sp_wd5m_v2 --save_file scores_wd5m_v2
+
+
+
+# for training sp_wd5m_v3 we used 4M sentences and following
+
+#### begin
+
+sp_data_fname = '/scratche/home/apoorv/transformer-kgc/data/wikidata5m_v3/lines_for_sp_training.txt'
+vocab_size = 32000
+user_defined_symbols = ['|TAIL|', '|HEAD|', '|||']
+# user_defined_symbols = ['|||']
+sp = spm.SentencePieceTrainer.train(input=sp_data_fname,
+                                    model_prefix='sp_wd5m_v3', 
+                                    vocab_size=vocab_size, 
+                                    user_defined_symbols=user_defined_symbols,
+                                    model_type='BPE',
+                                    character_coverage=1.0,
+                                    split_by_whitespace=False, # better compress relations?
+                                    add_dummy_prefix=True,
+                                    byte_fallback=True,
+                                    pad_id=3,
+                                    train_extremely_large_corpus=True # does nothing for BPE afaik
+                                   )
+
+#### end
+
+
+OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix wd5m_v2_small \
+--model_size small --dataset wikidata5m_v2 \
+--tokenizer sp_wd5m_v2 \
+--batch_size 80 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 50 

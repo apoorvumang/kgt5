@@ -77,6 +77,7 @@ parser.add_argument('--relation_prediction',type=int,
 parser.add_argument('--use_lm_pretraining',type=int,
                     default=0)
 
+parser.add_argument('--pad_to_max', dest='pad_to_max', default=False, action='store_true')
 parser.add_argument('--task', type=str, default='kgc')
 parser.add_argument('--hops', type=int, default=1)
 parser.add_argument('--force_lr', type=int, default=0)
@@ -150,10 +151,12 @@ def train(model, optimizer, dataset, args=None):
 
 if args.task == 'kgc':
     train_dataset = T5_Dataset('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
-                            relation_prediction = args.relation_prediction)
+                            relation_prediction = args.relation_prediction,
+                            pad_to_max=args.pad_to_max)
 elif args.task == 'qa':
     train_dataset = T5_DatasetQA('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
-                            relation_prediction = False, hops=args.hops)
+                            relation_prediction = False, hops=args.hops,
+                            pad_to_max=args.pad_to_max)
 else:
     raise NotImplementedError('{} task not implemented'.format(args.task))
 

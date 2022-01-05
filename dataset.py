@@ -110,6 +110,9 @@ class T5_Dataset(Dataset):
             # pad_id=3)
             self.tokenizer = SentencePieceTokenizer('sp_wd5m_v2', max_tokenize_length=60, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
+        elif tokenizer_type == 'sp_wd5m_v3':
+            self.tokenizer = SentencePieceTokenizer('sp_wd5m_v3', max_tokenize_length=30, pad_to_max=pad_to_max)
+            self.pad_token_id = self.tokenizer.pad_token_id
         else:
             raise NotImplementedError('{} tokenizer not implemented'.format(tokenizer_type))
         self.tokenizer_type = tokenizer_type
@@ -199,9 +202,9 @@ class T5_Dataset(Dataset):
     def _collate_fn_new(self, items):
         inputs = [item[0] for item in items]
         outputs = [item[1] for item in items]
-        # changed 60->80 and 25 -> 35 for cwq, trying fp16
-        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, max_length=80, return_tensors="pt")
-        outputs_tokenized = self.tokenizer(outputs, padding=True, truncation=True, max_length=35, return_tensors="pt")
+        # for wd5m_v3 sp, doing max input 30 since it covers 99.9948% sequences
+        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, max_length=30, return_tensors="pt")
+        outputs_tokenized = self.tokenizer(outputs, padding=True, truncation=True, max_length=25, return_tensors="pt")
         input_ids, attention_mask = inputs_tokenized.input_ids, inputs_tokenized.attention_mask
         labels, labels_attention_mask = outputs_tokenized.input_ids, outputs_tokenized.attention_mask
         # for labels, set -100 for padding
