@@ -15,6 +15,78 @@ import os
 from utils_accelerate import *
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--save_prefix',type=str,
+                    default='temp',
+                    help='prefix of model save checkpoint')
+
+parser.add_argument('--load_checkpoint',type=str,
+                    default=None,
+                    help='checkpoint to load from')
+
+parser.add_argument('--model_size',type=str,
+                    default='small',
+                    help='T5 model size')
+
+parser.add_argument('--optimizer',type=str,
+                    default='adafactor',
+                    help='which optimizer')
+
+parser.add_argument('--dataset',type=str,
+                    default='codex-m',
+                    help='which dataset')
+
+parser.add_argument('--resume',type=str,
+                    default=None,
+                    help='folder from which to resume run')
+
+parser.add_argument('--learning_rate',type=float,
+                    default=None,
+                    help='learning rate')
+
+parser.add_argument('--batch_size',type=int,
+                    default=64,
+                    help='train batch size')
+
+parser.add_argument('--epochs',type=int,
+                    default=5,
+                    help='epochs')
+
+parser.add_argument('--max_checkpoints',type=int,
+                    default=5,
+                    help='maximum no. of checkpoints to save')
+
+parser.add_argument('--num_workers',type=int,
+                    default=3,
+                    help='num workers per gpu')
+
+parser.add_argument('--save_steps',type=int,
+                    default=5000,
+                    help='num batches before checkpoint save')
+
+parser.add_argument('--loss_steps',type=int,
+                    default=500,
+                    help='num batches before printing loss')
+
+parser.add_argument('--tokenizer',type=str,
+                    default='t5')
+
+parser.add_argument('--relation_prediction',type=int,
+                    default=0)
+
+parser.add_argument('--use_lm_pretraining',type=int,
+                    default=0)
+
+parser.add_argument('--pad_to_max', dest='pad_to_max', default=False, action='store_true')
+parser.add_argument('--task', type=str, default='kgc')
+parser.add_argument('--hops', type=int, default=1)
+parser.add_argument('--force_lr', type=int, default=0)
+parser.add_argument('--start_steps', type=int, default=0)
+
+args = parser.parse_args()
+
+accelerator = Accelerator()
+device = accelerator.device
 
 
 def save_accelerator_model(model, optimizer, steps, loss, args):
@@ -77,142 +149,61 @@ def train(model, optimizer, dataset, args=None):
         accelerator.print('epoch loss ', epoch_loss)
 
 
+if args.task == 'kgc':
+    train_dataset = T5_Dataset('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
+                            relation_prediction = args.relation_prediction,
+                            pad_to_max=args.pad_to_max)
+elif args.task == 'qa':
+    train_dataset = T5_DatasetQA('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
+                            relation_prediction = False, hops=args.hops,
+                            pad_to_max=args.pad_to_max)
+else:
+    raise NotImplementedError('{} task not implemented'.format(args.task))
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--save_prefix',type=str,
-                        default='temp',
-                        help='prefix of model save checkpoint')
-
-    parser.add_argument('--load_checkpoint',type=str,
-                        default=None,
-                        help='checkpoint to load from')
-
-    parser.add_argument('--model_size',type=str,
-                        default='small',
-                        help='T5 model size')
-
-    parser.add_argument('--optimizer',type=str,
-                        default='adafactor',
-                        help='which optimizer')
-
-    parser.add_argument('--dataset',type=str,
-                        default='codex-m',
-                        help='which dataset')
-
-    parser.add_argument('--resume',type=str,
-                        default=None,
-                        help='folder from which to resume run')
-
-    parser.add_argument('--learning_rate',type=float,
-                        default=None,
-                        help='learning rate')
-
-    parser.add_argument('--batch_size',type=int,
-                        default=64,
-                        help='train batch size')
-
-    parser.add_argument('--epochs',type=int,
-                        default=5,
-                        help='epochs')
-
-    parser.add_argument('--max_checkpoints',type=int,
-                        default=5,
-                        help='maximum no. of checkpoints to save')
-
-    parser.add_argument('--num_workers',type=int,
-                        default=3,
-                        help='num workers per gpu')
-
-    parser.add_argument('--save_steps',type=int,
-                        default=5000,
-                        help='num batches before checkpoint save')
-
-    parser.add_argument('--loss_steps',type=int,
-                        default=500,
-                        help='num batches before printing loss')
-
-    parser.add_argument('--tokenizer',type=str,
-                        default='t5')
-
-    parser.add_argument('--relation_prediction',type=int,
-                        default=0)
-
-    parser.add_argument('--use_lm_pretraining',type=int,
-                        default=0)
-
-    parser.add_argument('--pad_to_max', dest='pad_to_max', default=False, action='store_true')
-    parser.add_argument('--task', type=str, default='kgc')
-    parser.add_argument('--hops', type=int, default=1)
-    parser.add_argument('--force_lr', type=int, default=0)
-    parser.add_argument('--start_steps', type=int, default=0)
-
-    args = parser.parse_args()
-
-    accelerator = Accelerator()
-    device = accelerator.device
+if 't5' not in args.model_size: # TODO: remove the need for this
+    args.model_size = 't5-{}'.format(args.model_size)
+kwargs = {'vocab_size': train_dataset.vocab_size}
+if args.use_lm_pretraining == 0:
+    config = T5Config().from_pretrained(args.model_size, **kwargs)
+    model = T5ForConditionalGeneration(config)
+else:
+    print('Using pretrained lm of size %s' % args.model_size)
+    model = T5ForConditionalGeneration.from_pretrained(args.model_size)
 
 
-
-    if args.task == 'kgc':
-        train_dataset = T5_Dataset('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
-                                relation_prediction = args.relation_prediction,
-                                pad_to_max=args.pad_to_max)
-    elif args.task == 'qa':
-        train_dataset = T5_DatasetQA('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
-                                relation_prediction = False, hops=args.hops,
-                                pad_to_max=args.pad_to_max)
+if args.optimizer == 'adafactor':
+    if args.learning_rate == None:
+        # optimizer = Adafactor(model.parameters(), relative_step=True, warmup_init=True)
+        optimizer = Adafactor(model.parameters(), scale_parameter=True, relative_step=True, warmup_init=True, lr=None)
     else:
-        raise NotImplementedError('{} task not implemented'.format(args.task))
+        # optimizer = Adafactor(model.parameters(), lr=args.learning_rate, relative_step=False, warmup_init=False)
+        optimizer = Adafactor(model.parameters(), scale_parameter=False, relative_step=False, warmup_init=False, lr=args.learning_rate)
+elif args.optimizer == 'adam':
+    optimizer = transformers.AdamW(model.parameters(), lr=args.learning_rate)
+else:
+    accelerator.print('Unknown optimizer type %s' % args.optimizer)
+    exit(0)
 
-    if 't5' not in args.model_size: # TODO: remove the need for this
-        args.model_size = 't5-{}'.format(args.model_size)
-    kwargs = {'vocab_size': train_dataset.vocab_size}
-    if args.use_lm_pretraining == 0:
-        config = T5Config().from_pretrained(args.model_size, **kwargs)
-        model = T5ForConditionalGeneration(config)
+if args.resume != None:
+    # see if folder of resume exists
+    if os.path.exists('model/{}'.format(args.resume)):
+        exit(0) #TODO: write this
     else:
-        print('Using pretrained lm of size %s' % args.model_size)
-        model = T5ForConditionalGeneration.from_pretrained(args.model_size)
-
-
-    if args.optimizer == 'adafactor':
-        if args.learning_rate == None:
-            # optimizer = Adafactor(model.parameters(), relative_step=True, warmup_init=True)
-            optimizer = Adafactor(model.parameters(), scale_parameter=True, relative_step=True, warmup_init=True, lr=None)
-        else:
-            # optimizer = Adafactor(model.parameters(), lr=args.learning_rate, relative_step=False, warmup_init=False)
-            optimizer = Adafactor(model.parameters(), scale_parameter=False, relative_step=False, warmup_init=False, lr=args.learning_rate)
-    elif args.optimizer == 'adam':
-        optimizer = transformers.AdamW(model.parameters(), lr=args.learning_rate)
-    else:
-        accelerator.print('Unknown optimizer type %s' % args.optimizer)
+        accelerator.print('Folder %s not found' % args.resume)
         exit(0)
-
-    if args.resume != None:
-        # see if folder of resume exists
-        if os.path.exists('model/{}'.format(args.resume)):
-            exit(0) #TODO: write this
-        else:
-            accelerator.print('Folder %s not found' % args.resume)
-            exit(0)
-    elif args.load_checkpoint != None:
-        accelerator.print('Loading from {}'.format(args.load_checkpoint))
-        model, optimizer, _, _ = load_accelerator_model('models/{}'.format(args.load_checkpoint))
-        if args.force_lr == 1:
-            print('Forcing lr to {}'.format(args.learning_rate))
-            optimizer = Adafactor(model.parameters(), scale_parameter=False, relative_step=False, warmup_init=False, lr=args.learning_rate)
-        accelerator.print('Loaded')
+elif args.load_checkpoint != None:
+    accelerator.print('Loading from {}'.format(args.load_checkpoint))
+    model, optimizer, _, _ = load_accelerator_model('models/{}'.format(args.load_checkpoint))
+    if args.force_lr == 1:
+        print('Forcing lr to {}'.format(args.learning_rate))
+        optimizer = Adafactor(model.parameters(), scale_parameter=False, relative_step=False, warmup_init=False, lr=args.learning_rate)
+    accelerator.print('Loaded')
+else:
+    
+    if args.use_lm_pretraining == 0:
+        accelerator.print('Starting fresh')
+        accelerator.print(config)
     else:
-        
-        if args.use_lm_pretraining == 0:
-            accelerator.print('Starting fresh')
-            accelerator.print(config)
-        else:
-            print('Might be using pretrained lm')
-        
-    train(model, optimizer, train_dataset, args)
-
-
-if __name__ == "__main__":
-    main()
+        print('Might be using pretrained lm')
+    
+train(model, optimizer, train_dataset, args)
