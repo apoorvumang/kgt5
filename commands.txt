@@ -148,9 +148,311 @@ sp = spm.SentencePieceTrainer.train(input=sp_data_fname,
 
 
 OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix wd5m_v3_base \
+--model_size base --dataset wikidata5m_v3 \
+--tokenizer sp_wd5m_v3 \
+--batch_size 80 --save_steps 40000 \
+--loss_steps 250 \
+--epochs 50 --pad_to_max
+
+
+accelerate launch main_accelerate.py --save_prefix wd5m_v3_base \
+--model_size base --dataset wikidata5m_v3 \
+--tokenizer sp_wd5m_v3 \
+--batch_size 80 --save_steps 40000 \
+--loss_steps 250 \
+--epochs 50 --pad_to_max
+
+
+
+accelerate-launch main_accelerate.py --save_prefix codexm \
+--model_size small --dataset codex-m \
+--tokenizer sp_wd5m_v3 \
+--batch_size 200 --save_steps 40000 \
+--loss_steps 250 \
+--epochs 50 --pad_to_max \
+--num_workers 24
+
+
+
+
+OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
 --save_prefix wd5m_v2_small \
 --model_size small --dataset wikidata5m_v2 \
 --tokenizer sp_wd5m_v2 \
 --batch_size 80 --save_steps 20000 \
 --loss_steps 250 \
---epochs 50 
+--epochs 50 --load_checkpoint wd5m_v2_small/820000.pt \
+--start_steps 820000 --pad_to_max
+
+
+ OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES=0,1 python3 -m torch.distributed.launch --nproc_per_node 2 --use_env ./main_accelerate.py \
+--save_prefix test_ld \
+--model_size small --dataset codex-m \
+--tokenizer sp_wd5m_v2 \
+--batch_size 200 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 50
+
+
+CUDA_VISIBLE_DEVICES=0 python3 ./main_accelerate.py \
+--save_prefix test_ld \
+--model_size small --dataset codex-m \
+--tokenizer t5 \
+--batch_size 200 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 50
+
+
+
+ python3 ./main_accelerate.py \
+--save_prefix test_ld \
+--model_size small --dataset codex-m \
+--tokenizer t5 \
+--batch_size 200 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 50 --pad_to_max
+
+
+OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix wd5m_v2_small \
+--model_size small --dataset wikidata5m_v2 \
+--tokenizer sp_wd5m_v2 \
+--batch_size 220 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 50 --load_checkpoint wd5m_v2_small/820000.pt \
+--start_steps 820000
+
+
+
+OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=0,1 python3 -m torch.distributed.launch --nproc_per_node 2 --use_env ./main_accelerate.py \
+--save_prefix wd5m_v3_small \
+--model_size small --dataset wikidata5m_v3 \
+--tokenizer sp_wd5m_v3 \
+--batch_size 200 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 50
+
+
+ OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix wd5m_v2_small \
+--model_size small --dataset wikidata5m_v2 \
+--tokenizer sp_wd5m_v2 \
+--batch_size 220 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 50 --load_checkpoint wd5m_v2_small/820000.pt \
+--start_steps 820000 --pad_to_max
+
+
+
+
+ OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES=0,1 python3 -m torch.distributed.launch --nproc_per_node 2 --use_env ./main_accelerate.py \
+--save_prefix wd5m_v2_small \
+--model_size small --dataset wikidata5m_v2 \
+--tokenizer sp_wd5m_v2 \
+--batch_size 200 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 50 --load_checkpoint wd5m_v2_small/820000.pt \
+--start_steps 820000
+
+
+
+
+
+python3 ./main_accelerate.py \
+--save_prefix wd5m_v3_base \
+--model_size base --dataset wikidata5m_v3 \
+--tokenizer sp_wd5m_v3 \
+--batch_size 100 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 50 --pad_to_max
+
+
+
+
+python3 ./xla_spawn.py \
+  --num_cores 8 \
+    examples/pytorch/translation/run_translation.py \
+    --model_name_or_path t5-base \
+    --do_train \
+    --do_eval \
+    --source_lang en \
+    --target_lang ro \
+    --source_prefix "translate English to Romanian: " \
+    --dataset_name wmt16 \
+    --dataset_config_name ro-en \
+    --output_dir /tmp/tst-translation \
+    --per_device_train_batch_size=16 \
+    --per_device_eval_batch_size=16 \
+    --overwrite_output_dir \
+    --predict_with_generate \
+    --tpu_metrics_debug \
+    --logging_dir ./tensorboard-metrics \
+    --pad_to_max_length \
+    --save_steps 500000 \
+    --max_source_length=128 
+
+python3 ./xla_spawn.py \
+  --num_cores 8 \
+    examples/pytorch/translation/run_translation.py \
+    --model_name_or_path t5-small \
+    --do_train \
+    --do_eval \
+    --source_lang en \
+    --target_lang ro \
+    --source_prefix "translate English to Romanian: " \
+    --dataset_name wmt16 \
+    --dataset_config_name ro-en \
+    --output_dir /tmp/tst-translation \
+    --per_device_train_batch_size=256 \
+    --per_device_eval_batch_size=256 \
+    --overwrite_output_dir \
+    --predict_with_generate \
+    --pad_to_max_length \
+    --max_source_length=32 \
+    --max_target_length=24 \  
+    --save_steps 50000
+
+
+
+
+python examples/xla_spawn.py \
+  --num_cores 8 \
+  examples/language-modeling/run_mlm.py \
+  --dataset_name wikitext \
+  --dataset_config_name wikitext-103-raw-v1 \
+  --max_seq_length 512 \
+  --pad_to_max_length \
+  --logging_dir ./tensorboard-metrics \
+  --cache_dir ./cache_dir \
+  --do_train \
+  --do_eval \
+  --overwrite_output_dir \
+  --output_dir language-modeling \
+  --overwrite_cache \
+  --tpu_metrics_debug \
+  --model_name_or_path bert-large-uncased \
+  --num_train_epochs 3 \
+  --per_device_train_batch_size 8 \
+  --per_device_eval_batch_size 8 \
+  --save_steps 500000
+
+
+
+python3 ./xla_spawn.py \
+  --num_cores 8 \
+  examples/pytorch/language-modeling/run_mlm.py \
+  --dataset_name wikitext \
+  --dataset_config_name wikitext-103-raw-v1 \
+  --max_seq_length 512 \
+  --cache_dir ./cache_dir \
+  --do_train \
+  --do_eval \
+  --overwrite_output_dir \
+  --output_dir language-modeling \
+  --overwrite_cache \
+  --model_name_or_path bert-large-uncased \
+  --num_train_epochs 3 \
+  --per_device_train_batch_size 4 \
+  --per_device_eval_batch_size 4 \
+
+
+
+python3  /home/apoorv/.local/lib/python3.8/site-packages/accelerate/commands/accelerate_cli.py launch examples/pytorch/translation/run_translation_no_trainer.py  --model_name_or_path t5-base     --do_train        --source_lang en     --target_lang ro     --source_prefix "translate English to Romanian: "     --dataset_name wmt16     --dataset_config_name ro-en     --output_dir /tmp/tst-translation     --per_device_train_batch_size=256     --per_device_eval_batch_size=256     --overwrite_output_dir     --predict_with_generate     --pad_to_max_length     --max_source_length=32     --max_target_length=24
+
+
+python3  /home/apoorv/.local/lib/python3.8/site-packages/accelerate/commands/accelerate_cli.py launch examples/pytorch/translation/run_translation_no_trainer.py \
+    --model_name_or_path t5-base \
+    --source_lang en \
+    --target_lang ro \
+    --dataset_name wmt16 \
+    --dataset_config_name ro-en \
+    --output_dir ~/tmp/tst-translation \
+    --per_device_train_batch_size 256 \
+    --max_source_length 32 \
+    --max_target_length 32 \
+    --pad_to_max_length=True \
+    --max_length 32
+
+
+
+python3 ./xla_spawn.py \
+  --num_cores 8 \
+    examples/pytorch/translation/run_translation.py \
+    --model_name_or_path t5-base \
+    --do_train \
+    --train_file data/wikidata5m_v3/json_format/train.json \
+    --output_dir /tmp/train-full-seq2seq-t5-base \
+    --per_device_train_batch_size=128 \
+    --overwrite_output_dir \
+    --pad_to_max_length \
+    --max_source_length=32 \
+    --max_target_length=32 \
+    --save_steps 10000 \
+    --cache_dir ./cache_dir \
+    --preprocessing_num_workers 16
+
+
+
+    python3 examples/pytorch/translation/run_translation.py \
+    --model_name_or_path t5-small \
+    --do_train \
+    --train_file data/wikidata5m_v3/json_format/train.json \
+    --output_dir /tmp/train-full-seq2seq-t5-small \
+    --per_device_train_batch_size=128 \
+    --overwrite_output_dir \
+    --max_source_length=32 \
+    --max_target_length=32 \
+    --save_steps 20000 \
+    --cache_dir ./cache_dir \
+    --preprocessing_num_workers 16
+
+
+python3 ./xla_spawn.py \
+  --num_cores 8 \
+    examples/pytorch/translation/run_translation.py \
+    --model_name_or_path t5-small \
+    --do_train \
+    --train_file data/wikidata5m_v3/json_format/train.json \
+    --output_dir /tmp/train-full-seq2seq-t5-small \
+    --per_device_train_batch_size=512 \
+    --overwrite_output_dir \
+    --pad_to_max_length \
+    --max_source_length=32 \
+    --max_target_length=32 \
+    --save_steps 10000 \
+    --cache_dir ./cache_dir \
+    --preprocessing_num_workers 16
+
+
+
+CUDA_VISIBLE_DEVICES=1,2,3 python3 -m torch.distributed.launch --nproc_per_node 3 --use_env ./eval_accelerate_parallel.py \
+--prefix wd5m_v3_small  \
+--dataset wikidata5m_v3 --batch_size 2 --beam_size 1 --num_predictions 250 \
+--max_points -1 --checkpoint 500000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3
+
+
+
+ OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES=0,1 python3 -m torch.distributed.launch --nproc_per_node 2 --use_env ./main_accelerate.py \
+--save_prefix wnrr_small \
+--model_size small --dataset wnrr \
+--tokenizer t5 \
+--batch_size 80 --save_steps 10000 \
+--loss_steps 250 \
+--epochs 50
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix wnrr_small \
+--dataset wnrr --batch_size 1 --beam_size 1 --num_predictions 400 \
+--max_points -1 --checkpoint 10000 --eval_split test \
+--tokenizer t5 --save_file scores_wnrr_small_400
+
+
+CUDA_VISIBLE_DEVICES=1 python3 ./main_accelerate.py \
+--save_prefix cwq_full_kgc_small \
+--model_size small --dataset cwq_full \
+--tokenizer t5 \
+--batch_size 160 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 50 --max_input_sequence_length 60 --max_output_sequence_length 20

@@ -19,6 +19,7 @@ from transformers import (
 )
 import pickle
 from trie import Trie
+from accelerate import Accelerator
 
 # with open("wd5m_entities_trie.pkl", "rb") as f:
 #     entities_trie = Trie.load_from_dict(pickle.load(f))
@@ -80,8 +81,9 @@ def getScores(ids, scores, pad_token_id):
     return final_scores.cpu().detach().numpy()
 
 
-def eval(model, dataset, args):
+def eval(model, dataset, accelerator, args):
     num_workers = 1
+    device = accelerator.device
     batch_size = args.batch_size
     # batch_size = 200
     model.cuda()
@@ -89,6 +91,9 @@ def eval(model, dataset, args):
     print('Using model.generate')
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers,
                             collate_fn=dataset._collate_eval_with_input_strings, pin_memory=True)
+
+
+    model, data_loader = accelerator.prepare(model, data_loader)
     loader = tqdm(data_loader, total=len(data_loader), unit="batches")
     i = 0
     targets = []
@@ -103,10 +108,9 @@ def eval(model, dataset, args):
             # TODO: for all evaluations, following was used
             # if args.task == 'kgc'
             # elif args.task == 'qa'
-            # TODO: for wd5m results, remove max_length=60. this probably defaults to 20, not good enough for wn18rr wnrr
             if args.num_predictions > args.beam_size:
-                outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
-                                        temperature=1.0, #TODO: make this argument?
+                outputs = model.module.generate(input_ids = input_ids.to(device), attention_mask=attention_mask.to(device),
+                                        temperature=1.0,
                                         do_sample=True,
                                         num_return_sequences = args.num_predictions,
                                         num_beams = args.beam_size,
@@ -115,14 +119,13 @@ def eval(model, dataset, args):
                                         output_scores = True,
                                         return_dict_in_generate=True,
                                         length_penalty = args.length_penalty,
-                                        max_length=args.max_output_length,
                                         # top_p=0.95,
                                         # top_k=250,
                                         #  prefix_allowed_tokens_fn=prefixFn,
                                         )
             else:
                 # qa only 1 output, greedy decode
-                outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
+                outputs = model.module.generate(input_ids = input_ids.to(device), attention_mask=attention_mask.to(device),
                                         do_sample=False,
                                         num_return_sequences = args.num_predictions,
                                         num_beams = args.beam_size,
@@ -131,7 +134,6 @@ def eval(model, dataset, args):
                                         output_scores = True,
                                         return_dict_in_generate=True,
                                         length_penalty = args.length_penalty,
-                                        max_length=args.max_output_length,
                                         #  prefix_allowed_tokens_fn=prefixFn,
                                         )
             # predicted_batch = outputs[:, 1:]
@@ -139,12 +141,17 @@ def eval(model, dataset, args):
             # print(outputs['sequences'].shape)
             # print(outputs['sequences_scores'].shape)
             # exit(0)
+
+            outputs = accelerator.gather(outputs)
+
             sequences = outputs.sequences
             
             if args.beam_size > 1:
-                final_scores = outputs.sequences_scores.cpu()
+                final_scores = outputs.sequences_scores
             else:
                 scores = outputs.scores
+                print(outputs)
+                exit(0)
                 final_scores = getScores(sequences, scores, dataset.tokenizer.pad_token_id)
 
             predicted_text = dataset.tokenizer.batch_decode(sequences, skip_special_tokens=True)
@@ -206,6 +213,7 @@ def eval(model, dataset, args):
 
 
 def main():
+    accelerator = Accelerator()
     parser = argparse.ArgumentParser()
     parser.add_argument('--prefix',type=str, default='temp')
     parser.add_argument('--checkpoint',type=str)
@@ -220,12 +228,13 @@ def main():
     parser.add_argument('--save_file', type=str, default='scores')
     parser.add_argument('--task', type=str, default='kgc')
     parser.add_argument('--hops', type=int, default=1)
-    parser.add_argument('--max_output_length', type=int, default=20)
                         
     args = parser.parse_args()
     print('Evaluating on split ', args.eval_split)
     if args.task == 'kgc':
-        valid_dataset = T5_Dataset(args.eval_split, dataset_name=args.dataset, tokenizer_type = args.tokenizer, max_points=args.max_points)
+        valid_dataset = T5_Dataset(args.eval_split, dataset_name=args.dataset, tokenizer_type = args.tokenizer, 
+                                    max_points=args.max_points,
+                                    pad_to_max=True)
     elif args.task == 'qa':
         valid_dataset = T5_DatasetQA(args.eval_split, dataset_name=args.dataset, 
                                      tokenizer_type = args.tokenizer, 
@@ -241,7 +250,7 @@ def main():
     # else:
     #     # accuracy = eval_multi(model, valid_dataset, args)
     #     accuracy = eval_multi_old(model, valid_dataset, args)
-    accuracy = eval(model, valid_dataset, args)
+    accuracy = eval(model, valid_dataset, accelerator, args)
     print(accuracy)
 
 

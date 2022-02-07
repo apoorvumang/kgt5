@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from dataset import T5_Dataset
 from dataset_qa import T5_DatasetQA
+from dataset_large import T5_Dataset_Large
 from transformers import T5Tokenizer, T5Config, T5ForConditionalGeneration
 from noam_lr_scheduler import NoamLR
 import torch
@@ -47,7 +48,7 @@ def train(model, optimizer, accelerator, dataset, args=None):
                             collate_fn=dataset._collate_fn_new)
     model, optimizer, data_loader = accelerator.prepare(model, optimizer, data_loader)
     # model, optimizer, _, _ = load_accelerator_model('models/codex-m_6gpu/17500.pt')
-    model.to(device)
+    # model
     model.train()
     
     for epoch in range(args.epochs):
@@ -57,16 +58,16 @@ def train(model, optimizer, accelerator, dataset, args=None):
         for steps, batch in enumerate(loader):
             input_ids, attention_mask, labels, labels_attention_mask = batch
             optimizer.zero_grad()
-            outputs = model(input_ids = input_ids.to(device), 
-            attention_mask = attention_mask.to(device), 
-            labels= labels.to(device)
+            outputs = model(input_ids = input_ids, 
+            attention_mask = attention_mask, 
+            labels= labels
             )
             loss = outputs.loss
             accelerator.backward(loss)
             optimizer.step()
             if num_steps % save_steps == 0:
                 accelerator.print('Saving at step %d' % num_steps)
-                # save_accelerator_model(model, optimizer, accelerator, num_steps, loss.item(), args)
+                save_accelerator_model(model, optimizer, accelerator, num_steps, loss.item(), args)
             num_steps += 1
             if num_steps % loss_steps == 0:
                 # accelerator.print('Loss: ', running_loss/loss_steps)
@@ -125,7 +126,7 @@ def main():
                         help='maximum no. of checkpoints to save')
 
     parser.add_argument('--num_workers',type=int,
-                        default=3,
+                        default=4,
                         help='num workers per gpu')
 
     parser.add_argument('--save_steps',type=int,
@@ -150,6 +151,9 @@ def main():
     parser.add_argument('--hops', type=int, default=1)
     parser.add_argument('--force_lr', type=int, default=0)
     parser.add_argument('--start_steps', type=int, default=0)
+    parser.add_argument('--max_input_sequence_length', type=int, default=60)
+    parser.add_argument('--max_output_sequence_length', type=int, default=60)
+    parser.add_argument('--large_dataset', type=int, default=0)
 
     args = parser.parse_args()
     
@@ -157,13 +161,23 @@ def main():
 
 
     if args.task == 'kgc':
-        train_dataset = T5_Dataset('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
-                                relation_prediction = args.relation_prediction,
-                                pad_to_max=args.pad_to_max)
+        if args.large_dataset == 0:
+            train_dataset = T5_Dataset('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
+                                    relation_prediction = args.relation_prediction,
+                                    pad_to_max=args.pad_to_max,
+                                    max_input_sequence_length=args.max_input_sequence_length,
+                                    max_output_sequence_length = args.max_output_sequence_length)
+        else:
+            train_dataset = T5_Dataset_Large('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
+                                    pad_to_max=args.pad_to_max,
+                                    max_input_sequence_length=args.max_input_sequence_length,
+                                    max_output_sequence_length = args.max_output_sequence_length)
     elif args.task == 'qa':
         train_dataset = T5_DatasetQA('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
                                 relation_prediction = False, hops=args.hops,
-                                pad_to_max=args.pad_to_max)
+                                pad_to_max=args.pad_to_max,
+                                max_input_sequence_length=args.max_input_sequence_length,
+                                max_output_sequence_length = args.max_output_sequence_length)
     else:
         raise NotImplementedError('{} task not implemented'.format(args.task))
 

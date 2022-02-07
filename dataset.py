@@ -32,6 +32,33 @@ class EvalBatch:
         return self
 
 
+# class TrainBatch:
+#     def __init__(self, items, tokenizer):
+#         pad_token_id = 3
+#         inputs = [item[0] for item in items]
+#         outputs = [item[1] for item in items]
+#         inputs_tokenized = tokenizer(inputs, padding=True, truncation=True, max_length=30, return_tensors="pt")
+#         outputs_tokenized = tokenizer(outputs, padding=True, truncation=True, max_length=25, return_tensors="pt")
+
+#         self.input_ids, self.attention_mask = inputs_tokenized.input_ids, inputs_tokenized.attention_mask
+#         self.labels, self.labels_attention_mask = outputs_tokenized.input_ids, outputs_tokenized.attention_mask
+
+#         self.labels[self.labels==pad_token_id] = -100
+
+
+#     # custom memory pinning method on custom type
+#     def pin_memory(self):
+#         self.input_ids = self.input_ids.pin_memory()
+#         self.attention_mask = self.attention_mask.pin_memory()
+#         self.labels = self.labels.pin_memory()
+#         self.labels_attention_mask = self.labels_attention_mask.pin_memory()
+#         return self.input_ids, self.attention_mask, self.labels, self.labels_attention_mask
+
+
+
+
+
+
 class T5_Dataset(Dataset):
     def __init__(self, 
                 split,
@@ -41,12 +68,17 @@ class T5_Dataset(Dataset):
                 relation_prediction=False,
                 load_data = True, #needed because in subclass we don't want to load data
                 pad_to_max = False, # max padding needed in case of TPU
+                max_input_sequence_length = 60,
+                max_output_sequence_length = 60,
                 ):
         # pad_to_max = True
         filename = 'data/{dataset_name}/{split}.txt'.format(
             dataset_name=dataset_name,
             split=split,
         )
+        self.max_input_sequence_length = max_input_sequence_length
+        self.max_output_sequence_length = max_output_sequence_length
+
         if relation_prediction == 1 and split == 'train':
             print('Train data contains relation prediction')
             filename = 'data/{dataset_name}/{split}.txt'.format(
@@ -72,31 +104,31 @@ class T5_Dataset(Dataset):
             self.tokenizer = UnigramTokenizer('codexm_rp_20000')
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'sentencepiece':
-            self.tokenizer = SentencePieceTokenizer('wd5m_with_pad', max_tokenize_length=75, pad_to_max=pad_to_max)
+            self.tokenizer = SentencePieceTokenizer('wd5m_with_pad', max_tokenize_length=max_input_sequence_length, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'sentencepiece-yago':
-            self.tokenizer = SentencePieceTokenizer('yago_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.tokenizer = SentencePieceTokenizer('yago_with_pad', max_tokenize_length=max_input_sequence_length, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'sentencepiece-yago2':
-            self.tokenizer = SentencePieceTokenizer('yago_with_pad2', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.tokenizer = SentencePieceTokenizer('yago_with_pad2', max_tokenize_length=max_input_sequence_length, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'metaqa_with_pad':
-            self.tokenizer = SentencePieceTokenizer('metaqa_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.tokenizer = SentencePieceTokenizer('metaqa_with_pad', max_tokenize_length=max_input_sequence_length, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'fbwq_with_pad':
-            self.tokenizer = SentencePieceTokenizer('fbwq_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.tokenizer = SentencePieceTokenizer('fbwq_with_pad', max_tokenize_length=max_input_sequence_length, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'codexm_with_pad':
-            self.tokenizer = SentencePieceTokenizer('codexm_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.tokenizer = SentencePieceTokenizer('codexm_with_pad', max_tokenize_length=max_input_sequence_length, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'codex_with_pad':
-            self.tokenizer = SentencePieceTokenizer('codex_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.tokenizer = SentencePieceTokenizer('codex_with_pad', max_tokenize_length=max_input_sequence_length, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'fbwq_half_lego_with_pad':
-            self.tokenizer = SentencePieceTokenizer('fbwq_half_lego_with_pad', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.tokenizer = SentencePieceTokenizer('fbwq_half_lego_with_pad', max_tokenize_length=max_input_sequence_length, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'webqsp_ents_as_tokens':
-            self.tokenizer = SentencePieceTokenizer('webqsp_ents_as_tokens', max_tokenize_length=60, pad_to_max=pad_to_max)
+            self.tokenizer = SentencePieceTokenizer('webqsp_ents_as_tokens', max_tokenize_length=max_input_sequence_length, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'sp_wd5m_v2':
             # this is BPE sentencepiece tokenizer
@@ -108,10 +140,12 @@ class T5_Dataset(Dataset):
             # user_defined_symbols=user_defined_symbols,
             # model_type='BPE',
             # pad_id=3)
-            self.tokenizer = SentencePieceTokenizer('sp_wd5m_v2', max_tokenize_length=60, pad_to_max=pad_to_max)
+            # max was 60 during initial training
+            self.tokenizer = SentencePieceTokenizer('sp_wd5m_v2', max_tokenize_length=max_input_sequence_length, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         elif tokenizer_type == 'sp_wd5m_v3':
-            self.tokenizer = SentencePieceTokenizer('sp_wd5m_v3', max_tokenize_length=30, pad_to_max=pad_to_max)
+            #TODO make/set max_input_sequence_length 30 for reproducing results
+            self.tokenizer = SentencePieceTokenizer('sp_wd5m_v3', max_tokenize_length=max_input_sequence_length, pad_to_max=pad_to_max)
             self.pad_token_id = self.tokenizer.pad_token_id
         else:
             raise NotImplementedError('{} tokenizer not implemented'.format(tokenizer_type))
@@ -142,6 +176,8 @@ class T5_Dataset(Dataset):
         # self.entity_strings = self.load_entity_strings(os.path.join("data", dataset_name, "entity_strings.txt"))
         # self.tokenized_entities = self.tokenizer(self.entity_strings, padding='max_length', truncation=True, max_length=32, return_tensors="pt")
         # self.entity_string_to_id = dict(zip(self.entity_strings, torch.arange(len(self.entity_strings)).tolist()))
+
+
 
     def split(self, split: str) -> Dict[List[str], List[str]]:
         return self.splits[split]
@@ -203,8 +239,8 @@ class T5_Dataset(Dataset):
         inputs = [item[0] for item in items]
         outputs = [item[1] for item in items]
         # for wd5m_v3 sp, doing max input 30 since it covers 99.9948% sequences
-        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, max_length=30, return_tensors="pt")
-        outputs_tokenized = self.tokenizer(outputs, padding=True, truncation=True, max_length=25, return_tensors="pt")
+        inputs_tokenized = self.tokenizer(inputs, padding=True, truncation=True, max_length=self.max_input_sequence_length, return_tensors="pt")
+        outputs_tokenized = self.tokenizer(outputs, padding=True, truncation=True, max_length=self.max_output_sequence_length, return_tensors="pt")
         input_ids, attention_mask = inputs_tokenized.input_ids, inputs_tokenized.attention_mask
         labels, labels_attention_mask = outputs_tokenized.input_ids, outputs_tokenized.attention_mask
         # for labels, set -100 for padding
@@ -212,6 +248,8 @@ class T5_Dataset(Dataset):
         # labels = -100 * torch.ones(labels.shape, dtype=torch.long)
         return input_ids, attention_mask, labels, labels_attention_mask
 
+    # def _collate_fn_new_pinned(self, items):
+    #     return TrainBatch(items, self.tokenizer)
 
     def _collate_eval(self, items):
         inputs = [item[0] for item in items]

@@ -52,7 +52,7 @@ class T5_DatasetQA(T5_Dataset):
         max_ans_per_item = 1 # how many max answers per question, when splitting
         # for fbwq_half, we want load data same as MetaQA
         # for fbwq_full, no entity stuff, plain qa
-        if dataset_name == 'fbwq_half_lego':
+        if dataset_name == 'fbwq_half_lego' or dataset_name == 'fbwq_half_lego_cr':
             self.data = self.loadData(filename, max_points)
             print(self.data['inputs'][0], self.data['outputs'][0])
         elif dataset_name == 'fbwq_full':
@@ -96,14 +96,21 @@ class T5_DatasetQA(T5_Dataset):
         x = input.split(':')[1][1:]
         ent = x.split('|')[0][:-1]
         return ent
+    # TODO: commented out function used in pre camera-ready results
+    # def separateEntity(self, question, replacement='NE'):
+    #     split1 = question.split('[')
+    #     lhs = split1[0]
+    #     split2 = split1[1].split(']')
+    #     entity = split2[0]
+    #     rhs = split2[1]
+    #     final = lhs + replacement + rhs
+    #     return final, entity
 
     def separateEntity(self, question, replacement='NE'):
-        split1 = question.split('[')
-        lhs = split1[0]
-        split2 = split1[1].split(']')
-        entity = split2[0]
-        rhs = split2[1]
-        final = lhs + replacement + rhs
+        start_loc = question.find('[')
+        end_loc = question.rfind(']')
+        entity = question[start_loc + 1: end_loc]
+        final = question[:start_loc] + replacement + question[end_loc + 1:]
         return final, entity
 
     def normalizeEntity(self, ent):
@@ -125,13 +132,18 @@ class T5_DatasetQA(T5_Dataset):
                 line = line[:-1]
             line = line.split('\t')
             question, head_entity = self.separateEntity(line[0])
-            head_entity = self.normalizeEntity(head_entity)
-            input = 'predict answer: {0} | {1} |'.format(head_entity, question)
+            # TODO: earlier was normalize
+            # head_entity = self.normalizeEntity(head_entity)
+            # TODO: with '|' at end was the one used before camera ready
+            # input = 'predict answer: {0} | {1} |'.format(head_entity, question)
+            input = 'predict answer: {0} | {1}'.format(head_entity, question)
             output = line[1].split('|') # multiple entities can be answer
-            output = [self.normalizeEntity(o) for o in output]
+            # TODO: earlier was normalize
+            # output = [self.normalizeEntity(o) for o in output]
             inputs.append(input)
             outputs.append(output)
         data = {'inputs': inputs, 'outputs': outputs}
+        # print(data['inputs'][47])
         return data
 
     def loadDataSpecial(self, filename, max_points):

@@ -49,6 +49,10 @@ class SentencePieceTokenizer(PreTrainedTokenizer):
         data = {'input_ids': input_ids, 'attention_mask': attention_mask}
         return BatchEncoding(data)
 
+    def tokenize_str(self, text):
+        out = self.sp.encode(text)
+        return out
+
     def batch_decode(self, input_ids, skip_special_tokens=True):
         input_ids = input_ids.tolist()
         #TODO: why need to do this?
@@ -78,6 +82,8 @@ class SentencePieceTokenizer(PreTrainedTokenizer):
 
 def main():
     tokenizer = SentencePieceTokenizer()
+    x = tokenizer.tokenize_str("hello world")
+    print(x)
     out = tokenizer(['hello world', 'fklsajd fkjsdfsa fjhs dj'])
     print(out.input_ids)
     # out.input_ids=out.input_ids.cuda()
