@@ -40,7 +40,8 @@ def load_accelerator_model(checkpoint_location, only_model = False):
         args.tokenizer = 't5'
 
     #TODO: creating a temporary dataset since we need vocab size for model
-    temp_dataset = T5_Dataset('valid', dataset_name=args.dataset, tokenizer_type=args.tokenizer)
+    # don't need to load data
+    temp_dataset = T5_Dataset('valid', dataset_name=args.dataset, tokenizer_type=args.tokenizer, load_data=False)
     kwargs = {'vocab_size': temp_dataset.vocab_size}
     config = T5Config().from_pretrained(args.model_size, **kwargs)
     

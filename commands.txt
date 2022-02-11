@@ -456,3 +456,10 @@ CUDA_VISIBLE_DEVICES=1 python3 ./main_accelerate.py \
 --batch_size 160 --save_steps 20000 \
 --loss_steps 250 \
 --epochs 50 --max_input_sequence_length 60 --max_output_sequence_length 20
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix wikikg90mv2_small \
+--dataset wikikg90mv2 --batch_size 10 --beam_size 1 --num_predictions 20 \
+--max_points -1 --checkpoint 540000 --eval_split test \
+--tokenizer t5 --save_file scores_wikikg90mv2 --max_output_length 30 

@@ -1,5 +1,6 @@
 from dataset import T5_Dataset
 from dataset_qa import T5_DatasetQA
+from dataset_hf import T5_Dataset_HF
 from transformers import T5Tokenizer, T5Config, T5ForConditionalGeneration
 from noam_lr_scheduler import NoamLR
 import torch
@@ -221,16 +222,23 @@ def main():
     parser.add_argument('--task', type=str, default='kgc')
     parser.add_argument('--hops', type=int, default=1)
     parser.add_argument('--max_output_length', type=int, default=20)
+    parser.add_argument('--hf_dataset', type=int, default=0)
                         
     args = parser.parse_args()
     print('Evaluating on split ', args.eval_split)
     if args.task == 'kgc':
         valid_dataset = T5_Dataset(args.eval_split, dataset_name=args.dataset, tokenizer_type = args.tokenizer, max_points=args.max_points)
     elif args.task == 'qa':
-        valid_dataset = T5_DatasetQA(args.eval_split, dataset_name=args.dataset, 
-                                     tokenizer_type = args.tokenizer, 
-                                     max_points=args.max_points,
-                                     hops=args.hops)
+        if args.hf_dataset == 0:
+            valid_dataset = T5_DatasetQA(args.eval_split, dataset_name=args.dataset, 
+                                        tokenizer_type = args.tokenizer, 
+                                        max_points=args.max_points,
+                                        hops=args.hops)
+        else:
+            valid_dataset = T5_Dataset_HF(args.eval_split, dataset_name=args.dataset, 
+                                        tokenizer_type = args.tokenizer, 
+                                        max_points=args.max_points,
+                                        )
     checkpoint_location = 'models/{}/{}.pt'.format(args.prefix, args.checkpoint)
     print('Using %s' % checkpoint_location)
     

@@ -2,6 +2,7 @@ from collections import OrderedDict
 from dataset import T5_Dataset
 from dataset_qa import T5_DatasetQA
 from dataset_large import T5_Dataset_Large
+from dataset_hf import T5_Dataset_HF
 from transformers import T5Tokenizer, T5Config, T5ForConditionalGeneration
 from noam_lr_scheduler import NoamLR
 import torch
@@ -154,6 +155,7 @@ def main():
     parser.add_argument('--max_input_sequence_length', type=int, default=60)
     parser.add_argument('--max_output_sequence_length', type=int, default=60)
     parser.add_argument('--large_dataset', type=int, default=0)
+    parser.add_argument('--hf_dataset', type=int, default=0)
 
     args = parser.parse_args()
     
@@ -173,11 +175,18 @@ def main():
                                     max_input_sequence_length=args.max_input_sequence_length,
                                     max_output_sequence_length = args.max_output_sequence_length)
     elif args.task == 'qa':
-        train_dataset = T5_DatasetQA('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
-                                relation_prediction = False, hops=args.hops,
-                                pad_to_max=args.pad_to_max,
-                                max_input_sequence_length=args.max_input_sequence_length,
-                                max_output_sequence_length = args.max_output_sequence_length)
+        if args.hf_dataset == 0:
+            train_dataset = T5_DatasetQA('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
+                                    relation_prediction = False, hops=args.hops,
+                                    pad_to_max=args.pad_to_max,
+                                    max_input_sequence_length=args.max_input_sequence_length,
+                                    max_output_sequence_length = args.max_output_sequence_length)
+        else:
+            train_dataset = T5_Dataset_HF('train', dataset_name=args.dataset, tokenizer_type=args.tokenizer, 
+                                    pad_to_max=args.pad_to_max,
+                                    max_input_sequence_length=args.max_input_sequence_length,
+                                    max_output_sequence_length = args.max_output_sequence_length)
+
     else:
         raise NotImplementedError('{} task not implemented'.format(args.task))
 
