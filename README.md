@@ -1,4 +1,4 @@
-# Complete my Sentence: Sequence to Sequence Knowledge Graph Completion and Question Answering
+# Sequence to Sequence Knowledge Graph Completion and Question Answering
 
 You can either upload the notebook `kgt5_demo_colab.ipynb` to Google Colab (https://colab.research.google.com/), or you can use the provided code. Using the notebook is recommended.
 
