@@ -10,11 +10,11 @@ We train a sequence-to-sequence T5-small model *from scratch* - we do not initia
 
 ## Resources
 
-The demo notebook and main branch currently only support KGC on Wikidata5M and only hits@1 unfiltered evaluation. Branch 'apoorv-dump' contains the latest code but it is still being cleaned. Data is yet to be uploaded. **If you need any particular data/pretrained models that we used to obtain results then please raise a github issue and we will provide it.**
+The main branch currently only supports KGC on Wikidata5M and only hits@1 unfiltered evaluation. Branch 'apoorv-dump' contains the latest code but it is still being cleaned. Data is yet to be uploaded. **If you need any particular data/pretrained models that we used to obtain results then please raise a github issue and we will provide it.**
 
 For details/evaluation on WikiKG90Mv2, please see https://huggingface.co/apoorvumang/kgt5-wikikg90mv2.
 
-To (kind of) reproduce results for WikiData5M you can either upload the notebook `kgt5_demo_colab.ipynb` to Google Colab (https://colab.research.google.com/), or you can use the provided code.
+To (kind of) reproduce results for WikiData5M you can use the following code.
 
 You need pytorch packages + huggingface transformers and huggingface accelerate.
 
