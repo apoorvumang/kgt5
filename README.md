@@ -59,3 +59,14 @@ CUDA_VISIBLE_DEVICES=0 python3 eval_accelerate.py --prefix wd5m-6gpu --checkpoin
 --dataset wikidata5m --batch_size 200
 ```
 
+## How to cite
+If you used our work or found it helpful, please use the following citation:
+
+```
+@inproceedings{saxena2022kgt5,
+  title={Sequence-to-Sequence Knowledge Graph Completion and Question Answering},
+  author={Saxena, Apoorv and Kochsiek, Adrian and Gemulla, Rainer},
+  booktitle={Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics},
+  year={2022}
+}
+```
