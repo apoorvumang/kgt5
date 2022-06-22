@@ -23,7 +23,11 @@ pip install transformers
 pip install accelerate
 ```
 
-Dataset download: https://storage.googleapis.com/t5-kgc-colab/data/data.zip
+KGC Dataset download: https://storage.googleapis.com/t5-kgc-colab/data/data.zip
+
+KGQA Dataset download: https://storage.googleapis.com/t5-kgc-colab/data/data_kgqa.zip
+
+Note: Please see [issue #13](https://github.com/apoorvumang/kgt5/issues/13) for details about the KGQA dataset. More details will be added here in the README soon.
 
 ## Usage
 
