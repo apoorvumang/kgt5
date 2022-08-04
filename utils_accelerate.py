@@ -16,7 +16,7 @@ def removeModuleFromKeys(state_dict):
     else:
         return state_dict
 
-def load_accelerator_model(checkpoint_location, only_model = False):
+def load_accelerator_model(checkpoint_location, dropout=0.1, only_model = False):
     checkpoint = torch.load(checkpoint_location, map_location='cpu')
     try:
         args = checkpoint['args']
@@ -43,6 +43,7 @@ def load_accelerator_model(checkpoint_location, only_model = False):
     # don't need to load data
     temp_dataset = T5_Dataset('valid', dataset_name=args.dataset, tokenizer_type=args.tokenizer, load_data=False)
     kwargs = {'vocab_size': temp_dataset.vocab_size}
+    kwargs['dropout_rate'] = dropout
     config = T5Config().from_pretrained(args.model_size, **kwargs)
     
     model = T5ForConditionalGeneration(config)

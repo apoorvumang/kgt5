@@ -463,3 +463,317 @@ CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix wikikg90mv2_small \
 --dataset wikikg90mv2 --batch_size 10 --beam_size 1 --num_predictions 20 \
 --max_points -1 --checkpoint 540000 --eval_split test \
 --tokenizer t5 --save_file scores_wikikg90mv2 --max_output_length 30 
+
+OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix wikikg90mv2_small \
+--model_size small --dataset wikikg90mv2 \
+--tokenizer t5 \
+--batch_size 160 --save_steps 20000 \
+--loss_steps 250 \
+--epochs 500 --max_input_sequence_length 40 --max_output_sequence_length 30 --large_dataset 1 --load_checkpoint wikikg90mv2_small/300000.pt --start_steps 300000
+
+
+OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix wikikg90mv2_base \
+--model_size base --dataset wikikg90mv2 \
+--tokenizer t5 \
+--batch_size 60 --save_steps 50000 \
+--loss_steps 250 \
+--epochs 500 --max_input_sequence_length 40 --max_output_sequence_length 30 --large_dataset 1 --use_lm_pretraining 1
+
+
+
+OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5 python3 -m torch.distributed.launch --nproc_per_node 6 --use_env ./main_accelerate.py \
+--save_prefix wikikg90mv2_base \
+--model_size base --dataset wikikg90mv2 \
+--tokenizer t5 \
+--batch_size 64 --save_steps 50000 \
+--loss_steps 250 \
+--epochs 500 --max_input_sequence_length 40 --max_output_sequence_length 30 --large_dataset 1 --use_lm_pretraining 1
+
+
+
+
+
+
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix fbwq_full_lego_qa_mixed \
+--dataset fbwq_half_lego --batch_size 100 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 480000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer t5 --save_file scores_temp --max_output_length 20
+
+
+
+
+CUDA_VISIBLE_DEVICES=1 python3 main_accelerate.py \
+--save_prefix cwq_full_qa_oldstyle \
+--model_size small --dataset cwq_half \
+--tokenizer t5 \
+--batch_size 40 --save_steps 2000 \
+--loss_steps 250 \
+--task qa --hops 1 \
+--epochs 100 --load_checkpoint cwq_full_kgc_oldstyle/580000.pt \
+--dropout 0.1 --max_input_sequence_length 50 --max_output_sequence_length 30 \
+--learning_rate 0.001 --force_lr 1
+
+
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 1 --beam_size 1 --num_predictions 300 \
+--max_points 10000 --checkpoint 5300000 --eval_split train \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_train10k --max_output_length 30 
+
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix cwq_full_qa_oldstyle \
+--dataset cwq_half --batch_size 100 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 30000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer t5 --save_file scores_temp --max_output_length 20
+
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 1 --beam_size 1 --num_predictions 300 \
+--max_points 10000 --checkpoint 5300000 --eval_split train \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_train10k --max_output_length 30 
+
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 20 --beam_size 50 --num_predictions 50 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_beam50_ln --length_normalization 1 --max_output_length 20
+
+CUDA_VISIBLE_DEVICES=4 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 20 --beam_size 50 --num_predictions 50 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_beam50 --length_normalization 0 --max_output_length 20
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 10 --beam_size 1 --num_predictions 50 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_sample50 --length_normalization 0 --max_output_length 20
+
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 20 --beam_size 10 --num_predictions 10 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_beam10_ln --length_normalization 1 --max_output_length 20
+
+CUDA_VISIBLE_DEVICES=4 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 20 --beam_size 10 --num_predictions 10 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_beam10 --length_normalization 0 --max_output_length 20
+
+
+CUDA_VISIBLE_DEVICES=1 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 20 --beam_size 1 --num_predictions 10 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_sample10 --length_normalization 0 --max_output_length 20
+
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 20 --beam_size 5 --num_predictions 5 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_beam5_ln --length_normalization 1 --max_output_length 20
+
+
+CUDA_VISIBLE_DEVICES=4 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 20 --beam_size 5 --num_predictions 5 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_beam5 --length_normalization 0 --max_output_length 20
+
+
+
+CUDA_VISIBLE_DEVICES=1 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 100 --beam_size 1 --num_predictions 5 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_sample5 --length_normalization 0 --max_output_length 20
+
+
+CUDA_VISIBLE_DEVICES=1 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 100 --beam_size 1 --num_predictions 2 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_sample2 --length_normalization 0 --max_output_length 20
+
+
+CUDA_VISIBLE_DEVICES=4 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 20 --beam_size 2 --num_predictions 2 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_beam2 --length_normalization 0 --max_output_length 20
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 20 --beam_size 2 --num_predictions 2 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_beam2_ln --length_normalization 1 --max_output_length 20
+
+
+
+
+CUDA_VISIBLE_DEVICES=4 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 20 --beam_size 25 --num_predictions 25 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_beam25 --length_normalization 0 --max_output_length 20
+
+
+CUDA_VISIBLE_DEVICES=1 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 10 --beam_size 1 --num_predictions 25 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_sample25 --length_normalization 0 --max_output_length 20
+
+
+
+CUDA_VISIBLE_DEVICES=2 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 1 --beam_size 5 --num_predictions 200 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_beamsample --length_normalization 0 --max_output_length 20
+
+
+
+CUDA_VISIBLE_DEVICES=6 python3 main_accelerate.py \
+--save_prefix nq_base_90mfinetuned \
+--model_size base --dataset naturalquestions \
+--tokenizer t5 \
+--batch_size 40 --save_steps 8000 \
+--loss_steps 250 \
+--task qa --hops 1 \
+--epochs 100 --load_checkpoint wikikg90mv2_base_from_ptlm/1600000.pt \
+--dropout 0.1 --max_input_sequence_length 50 --max_output_sequence_length 20 \
+--learning_rate 0.001 --force_lr 1
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix nq_base_90mfinetuned \
+--dataset naturalquestions --batch_size 100 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 88000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer t5 --save_file scores_temp --max_output_length 20
+
+
+ CUDA_VISIBLE_DEVICES=5 python3 main_accelerate.py \
+--save_prefix nq_base_90mfinetuned_05dropout \
+--model_size base --dataset naturalquestions \
+--tokenizer t5 \
+--batch_size 100 --save_steps 8000 \
+--loss_steps 250 \
+--task qa --hops 1 \
+--epochs 80 --load_checkpoint wikikg90mv2_base_from_ptlm/1600000.pt \
+--dropout 0.05 --max_input_sequence_length 50 --max_output_sequence_length 20 \
+--learning_rate 0.001 --force_lr 1
+
+
+
+CUDA_VISIBLE_DEVICES=6 python3 main_accelerate.py \
+--save_prefix tqa_base_90mfinetuned \
+--model_size base --dataset triviaqa \
+--tokenizer t5 \
+--batch_size 32 --save_steps 8000 \
+--loss_steps 250 \
+--task qa --hops 1 \
+--epochs 100 --load_checkpoint wikikg90mv2_base_from_ptlm/1600000.pt \
+--dropout 0.1 --max_input_sequence_length 50 --max_output_sequence_length 20 \
+--learning_rate 0.001 --force_lr 1
+
+
+CUDA_VISIBLE_DEVICES=7 python3 main_accelerate.py \
+--save_prefix tqa_base_ptlm \
+--model_size base --dataset triviaqa \
+--tokenizer t5 \
+--batch_size 32 --save_steps 8000 \
+--loss_steps 250 \
+--task qa --hops 1 \
+--epochs 100 --use_lm_pretraining 1 \
+--dropout 0.1 --max_input_sequence_length 50 --max_output_sequence_length 20 \
+--learning_rate 0.001 --force_lr 1
+
+
+
+CUDA_VISIBLE_DEVICES=4 python3 eval_accelerate.py --prefix wikikg90mv2_base_from_ptlm \
+--dataset wikikg90mv2 --batch_size 1 --beam_size 1 --num_predictions 300 \
+--max_points -1 --checkpoint 1600000 --eval_split test \
+--tokenizer t5 --save_file scores_wikikg90mv2_base_ptlm --max_output_length 30 
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix wikikg90mv2_small \
+--dataset wikikg90mv2 --batch_size 10 --beam_size 1 --num_predictions 20 \
+--max_points 1000 --checkpoint 1600000 --eval_split test \
+--tokenizer t5 --save_file scores_wikikg90mv2_temp --max_output_length 30 
+
+
+
+CUDA_VISIBLE_DEVICES=4 python3 eval_accelerate.py --prefix wikikg90mv2_base_from_ptlm \
+--dataset wikikg90mv2 --batch_size 10 --beam_size 1 --num_predictions 20 \
+--max_points 1000 --checkpoint 1600000 --eval_split test \
+--tokenizer t5 --save_file scores_wikikg90mv2_base_ptlm_temp --max_output_length 30 
+
+
+OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix wikikg90mv2_base_noptlm \
+--model_size base --dataset wikikg90mv2 \
+--tokenizer t5 \
+--batch_size 60 --save_steps 50000 \
+--loss_steps 250 \
+--epochs 500 --max_input_sequence_length 40 --max_output_sequence_length 30 --large_dataset 1
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix nq_base_ptlm \
+--dataset naturalquestions --batch_size 100 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 144000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer t5 --save_file scores_temp --max_output_length 20
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix tqa_base_ptlm \
+--dataset triviaqa --batch_size 100 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 544000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer t5 --save_file scores_temp --max_output_length 20
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix tqa_base_90mfinetuned \
+--dataset triviaqa --batch_size 100 --beam_size 2 --num_predictions 1 \
+--max_points -1 --checkpoint 728000 --eval_split test \
+--task qa --hops 1 \
+--tokenizer t5 --save_file scores_temp --max_output_length 20
+
+
+
+CUDA_VISIBLE_DEVICES=5 python3 eval_accelerate.py --prefix wd5m_v3_small \
+--dataset wikidata5m_v3 --batch_size 1 --beam_size 50 --num_predictions 50 \
+--max_points -1 --checkpoint 5300000 --eval_split test \
+--tokenizer sp_wd5m_v3 --save_file scores_wd5m_v3_test_beamsample_50beam_50numpred --length_normalization 0 --max_output_length 20
+
+
+
+ OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix wnrr_small_ptlm \
+--model_size small --dataset wnrr \
+--tokenizer t5 \
+--batch_size 80 --save_steps 10000 \
+--loss_steps 250 \
+--epochs 500 --max_input_sequence_length 60 --max_output_sequence_length 60 \
+--use_lm_pretraining 1
+
+
+
+
+
+
+ OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node 4 --use_env ./main_accelerate.py \
+--save_prefix wnrr_small_v1_1_ptlm \
+--model_size google/t5-v1_1-small --dataset wnrr \
+--tokenizer t5 \
+--batch_size 80 --save_steps 10000 \
+--loss_steps 250 \
+--epochs 500 --max_input_sequence_length 60 --max_output_sequence_length 60 \
+--use_lm_pretraining 1

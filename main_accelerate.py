@@ -72,7 +72,8 @@ def train(model, optimizer, accelerator, dataset, args=None):
             num_steps += 1
             if num_steps % loss_steps == 0:
                 # accelerator.print('Loss: ', running_loss/loss_steps)
-                accelerator.print('Loss: ', loss.item()/len(input_ids)) # divide by batch size
+                accelerator.print('Loss: ', loss.item()) # dont divide by batch to get batch size independent loss
+                # accelerator.print('Loss: ', loss.item()/len(input_ids)) # divide by batch size
                 running_loss = 0
             running_loss += loss.item()
             epoch_loss += loss.item()
@@ -156,6 +157,7 @@ def main():
     parser.add_argument('--max_output_sequence_length', type=int, default=60)
     parser.add_argument('--large_dataset', type=int, default=0)
     parser.add_argument('--hf_dataset', type=int, default=0)
+    parser.add_argument('--dropout', type=float, default=0.1)
 
     args = parser.parse_args()
     
@@ -193,12 +195,13 @@ def main():
     if 't5' not in args.model_size: # TODO: remove the need for this
         args.model_size = 't5-{}'.format(args.model_size)
     kwargs = {'vocab_size': train_dataset.vocab_size}
+    kwargs['dropout_rate'] = args.dropout # so that we can change dropout for finetuning
     if args.use_lm_pretraining == 0:
         config = T5Config().from_pretrained(args.model_size, **kwargs)
         model = T5ForConditionalGeneration(config)
     else:
         print('Using pretrained lm of size %s' % args.model_size)
-        model = T5ForConditionalGeneration.from_pretrained(args.model_size)
+        model = T5ForConditionalGeneration.from_pretrained(args.model_size, **kwargs)
 
 
     if args.optimizer == 'adafactor':
@@ -223,7 +226,7 @@ def main():
             exit(0)
     elif args.load_checkpoint != None:
         accelerator.print('Loading from {}'.format(args.load_checkpoint))
-        model, optimizer, _, _ = load_accelerator_model('models/{}'.format(args.load_checkpoint))
+        model, optimizer, _, _ = load_accelerator_model('models/{}'.format(args.load_checkpoint), dropout=args.dropout)
         if args.force_lr == 1:
             print('Forcing lr to {}'.format(args.learning_rate))
             optimizer = Adafactor(model.parameters(), scale_parameter=False, relative_step=False, warmup_init=False, lr=args.learning_rate)

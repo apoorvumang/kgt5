@@ -40,10 +40,17 @@ class T5_DatasetQA(T5_Dataset):
                 dataset_name = 'MetaQA_half',
                 tokenizer_type = 't5',
                 max_points=-1,
+                pad_to_max = False,
                 relation_prediction=False,
+                max_input_sequence_length = 60,
+                max_output_sequence_length = 60,
                 hops=1):
         # self.super(split, dataset_name, tokenizer_type, max_points, relation_prediction)
-        super().__init__(split, dataset_name, tokenizer_type, max_points, relation_prediction, load_data=False)
+        super().__init__(split, dataset_name, tokenizer_type, max_points, relation_prediction, 
+                        load_data = False, 
+                        pad_to_max = pad_to_max, 
+                        max_input_sequence_length = max_input_sequence_length,
+                        max_output_sequence_length = max_output_sequence_length)
         filename = 'data/{dataset_name}/qa_{split}_{hops}hop.txt'.format(
             dataset_name=dataset_name,
             split=split,
@@ -58,7 +65,7 @@ class T5_DatasetQA(T5_Dataset):
         elif dataset_name == 'fbwq_full':
             self.data = self.loadDataSpecial(filename, max_points)
             print(self.data['inputs'][0], self.data['outputs'][0])
-        elif dataset_name == 'cwq_half':
+        elif dataset_name in ['cwq_half', 'cwq_full', 'naturalquestions', 'triviaqa']:
             self.data = self.loadDataNoTopicEntity(filename, max_points)
             print(self.data['inputs'][0], self.data['outputs'][0])
         else:

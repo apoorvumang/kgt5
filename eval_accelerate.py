@@ -58,7 +58,7 @@ def grouper(arr, n):
         out.append(arr[start_id:start_id+n])
     return out
 
-def getScores(ids, scores, pad_token_id):
+def getScores(ids, scores, pad_token_id, length_normalization = 0):
     # ids is list of tokenized strings
     # scores is a list of tensors. each tensor contains score of each token in vocab
     # conditioned on ids till that point
@@ -77,6 +77,9 @@ def getScores(ids, scores, pad_token_id):
     padded_mask = (ids == pad_token_id)
     final_logits[padded_mask] = 0
     final_scores = final_logits.sum(dim=-1)
+    if length_normalization == 1:
+        sequence_lengths = torch.sum(~padded_mask, dim=1)
+        final_scores = final_scores/sequence_lengths
 
     return final_scores.cpu().detach().numpy()
 
@@ -105,7 +108,8 @@ def eval(model, dataset, args):
             # if args.task == 'kgc'
             # elif args.task == 'qa'
             # TODO: for wd5m results, remove max_length=60. this probably defaults to 20, not good enough for wn18rr wnrr
-            if args.num_predictions > args.beam_size:
+            # if args.num_predictions > args.beam_size:
+            if True:
                 outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
                                         temperature=1.0, #TODO: make this argument?
                                         do_sample=True,
@@ -122,7 +126,6 @@ def eval(model, dataset, args):
                                         #  prefix_allowed_tokens_fn=prefixFn,
                                         )
             else:
-                # qa only 1 output, greedy decode
                 outputs = model.generate(input_ids = input_ids.cuda(), attention_mask=attention_mask.cuda(),
                                         do_sample=False,
                                         num_return_sequences = args.num_predictions,
@@ -141,12 +144,18 @@ def eval(model, dataset, args):
             # print(outputs['sequences_scores'].shape)
             # exit(0)
             sequences = outputs.sequences
-            
+
             if args.beam_size > 1:
-                final_scores = outputs.sequences_scores.cpu()
+                final_scores = outputs.sequences_scores
+                if args.length_normalization == 1:
+                    # get sequence lengths. see getScores for how this works
+                    sequence_lengths = torch.sum((sequences[:,1:] != dataset.tokenizer.pad_token_id), dim=1)
+                    final_scores = final_scores/sequence_lengths
+                final_scores = final_scores.cpu()
             else:
                 scores = outputs.scores
-                final_scores = getScores(sequences, scores, dataset.tokenizer.pad_token_id)
+                final_scores = getScores(sequences, scores, dataset.tokenizer.pad_token_id,
+                                         length_normalization = args.length_normalization)
 
             predicted_text = dataset.tokenizer.batch_decode(sequences, skip_special_tokens=True)
             # predicted_text = zip(*[iter(predicted_text)]*args.num_predictions)
@@ -223,6 +232,7 @@ def main():
     parser.add_argument('--hops', type=int, default=1)
     parser.add_argument('--max_output_length', type=int, default=20)
     parser.add_argument('--hf_dataset', type=int, default=0)
+    parser.add_argument('--length_normalization', type=int, default=0)
                         
     args = parser.parse_args()
     print('Evaluating on split ', args.eval_split)
