@@ -8,6 +8,15 @@ We train a sequence-to-sequence T5-small model *from scratch* - we do not initia
 
 <img width="878" alt="image" src="https://user-images.githubusercontent.com/1957903/160060872-60d5e5a1-f1c5-4987-804a-43375e5114e1.png">
 
+## NEWS
+
+**We extended KGT5 to [KGT5-context](https://github.com/uma-pi1/kgt5-context/tree/main).** 
+This approach improves link prediction performance considerably. 
+Further, it comes with a new codebase for easier reproduction. 
+
+[KGT5-context codebase](https://github.com/uma-pi1/kgt5-context/tree/main)
+
+
 ## Resources
 
 The main branch currently only supports KGC on Wikidata5M and only hits@1 unfiltered evaluation. Branch 'apoorv-dump' contains the latest code but it is still being cleaned. Data is yet to be uploaded. **If you need any particular data/pretrained models that we used to obtain results then please raise a github issue and we will provide it.**
