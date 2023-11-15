@@ -10,11 +10,24 @@ We train a sequence-to-sequence T5-small model *from scratch* - we do not initia
 
 ## NEWS
 
+### New Codebase
+
 **We extended KGT5 to [KGT5-context](https://github.com/uma-pi1/kgt5-context/tree/main).** 
 This approach improves link prediction performance considerably. 
 Further, it comes with a new codebase for easier reproduction. 
 
 [KGT5-context codebase](https://github.com/uma-pi1/kgt5-context/tree/main)
+
+### Semi-Inductive Link Prediction
+
+KGT5 as well as KGT5-context can also be used for semi-inductive link prediction as showcased on the new Wikidata5M-SI benchmark.
+
+[A Benchmark for Semi-Inductive Link Prediction in Knowledge Graphs](https://arxiv.org/pdf/2310.11917.pdf)
+
+
+## Checkpoints
+
+You can find checkpoints for the dataset Wikidata5M in our new [KGT5-context codebase](https://github.com/uma-pi1/kgt5-context/tree/main).
 
 
 ## Resources
