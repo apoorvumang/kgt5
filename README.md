@@ -1,3 +1,5 @@
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-benchmark-for-semi-inductive-link/inductive-link-prediction-on-wikidata5m-si)](https://paperswithcode.com/sota/inductive-link-prediction-on-wikidata5m-si?)
+
 # KGT5
 
 This is the implementation for the ACL 2022 Main Conference paper [Sequence to Sequence Knowledge Graph Completion and Question Answering](https://arxiv.org/abs/2203.10321) (KGT5).
